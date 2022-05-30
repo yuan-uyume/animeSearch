@@ -1,5 +1,6 @@
 set urlbase=https://raw.fastgit.org/dakerj/animeSearch/master/
 set download=aria2\aria2c
+
 echo 开始删除旧文件
 rm html\index.html
 rm html\version.json
