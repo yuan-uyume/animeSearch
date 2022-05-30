@@ -3,35 +3,32 @@
 #### 介绍
 综合动漫搜搜
 
+##### 支持计划
+- [x] 樱花动漫
+- [x] MX动漫 
+
 #### 软件架构
-软件架构说明
+nginx
+openresty
+vue
+element-ui
+jquery
+aria2
 
 
 #### 安装教程
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+无需安装
 
 #### 使用说明
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+1. start.bat 启动
+2. restart.bat 重新启动
+3. reload.bat 重载配置
+4. stop.bat 停止
+5. kill.bat 杀死
+6. update.bat 更新
 
 #### 参与贡献
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
-
-
-#### 特技
-
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+uyume

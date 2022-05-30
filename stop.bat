@@ -1,0 +1,1 @@
+openresty\nginx -s stop

@@ -1,0 +1,316 @@
+<html lang="zh">
+<head>
+    <title>搜索动漫 by uyume</title>
+    <script src="js/jquery-3.6.0.min.js"></script>
+    <script src="js/vue.js"></script>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="el/el-ui.css">
+    <link rel="stylesheet" href="css/my.css">
+    <!-- 引入组件库 -->
+    <script src="el/el-js.js"></script>
+    <meta charset="UTF-8">
+    <meta name="referrer" content="no-referrer" />
+</head>
+<body>
+<div id="app">
+    <el-drawer
+            title="搜索源设置"
+            :visible.sync="drawer"
+            direction="rtl"
+            :before-close="handleClose">
+        <el-tooltip class="item" effect="dark" content="数量限制：该搜索源只搜索前N条，N为0时表示没有限制" placement="top-end">
+            <el-button icon="el-icon-info" circle style="float: right; margin-right: 12px"></el-button>
+        </el-tooltip>
+        <el-table
+                ref="searchComponentsSetting"
+                :data="searchComponents"
+                tooltip-effect="dark"
+                style="width: 100%"
+                @selection-change="handleSelectionChange">
+            <el-table-column
+                    type="selection"
+                    width="55">
+            </el-table-column>
+            <el-table-column
+                    prop="source"
+                    label="名称"
+                    width="180"
+                    show-overflow-tooltip>
+            </el-table-column>
+            <el-table-column
+                    prop="limit"
+                    label="数量限制">
+                <template scope="scope">
+                    <el-input-number v-model="scope.row.limit" :step="1" step-strictly :min="0" :max="20"></el-input-number>
+                </template>
+            </el-table-column>
+        </el-table>
+    </el-drawer>
+    <el-container >
+        <el-header id="search" height="140x">
+            <el-row style="height: 48px;margin-bottom: 4px">
+                <el-form ref="form" label-width="80px" style="height: 40px;margin-bottom: 8px" @submit.native.prevent>
+                    <el-row style="height: 48px;">
+                        <el-col :span="16"  style="height: 48px;min-width: 300px">
+                            <el-form-item label="搜索内容" name="input">
+                                <el-input style="min-width: 300px"
+                                        :placeholder="'uyume爱你φ(>ω<*)  version:' + version.version"
+                                        v-model="input"
+                                        @keydown.enter.native="onSubmit"
+                                        >
+                                </el-input>
+                            </el-form-item>
+                        </el-col>
+                        <el-col style="height: 48px;" :span="8">
+                            <el-form-item>
+                                <div style="min-width: 338px">
+                                    <el-button type="primary" icon="el-icon-search" @click="onSubmit">搜索</el-button>
+                                    <el-button type="info" icon="el-icon-s-tools" @click="onSetting">搜索源</el-button>
+                                    <el-button icon="el-icon-magic-stick" @click="choose = !choose" round>更多</el-button>
+                                </div>
+                            </el-form-item>
+                        </el-col>
+                    </el-row>
+                </el-form>
+            </el-row>
+            <el-row v-show="choose">
+                <el-row>
+                    <el-form label-width="80px" style="float: left;height: 30px" :inline="true">
+                        <el-form-item label="来源筛选" name="input">
+                            <el-select multiple style="width: 400px" v-model="chooseValue" placeholder="请选择">
+                                <el-option
+                                        v-for="item in enableSearchComponents"
+                                        :key="item.index"
+                                        :label="item.source.split('(')[0]"
+                                        :value="item.source">
+                                    <span style="float: left">{{ item.source.split('(')[0] }}</span>
+                                    <span style="float: right; color: #8492a6; font-size: 13px">{{ item.source.split('(')[1].substr(0, item.source.split('(')[1].length-1) }}</span>
+                                </el-option>
+                            </el-select>
+                            <el-button style="margin-left: 6px" type="primary" icon="el-icon-star-off" @click="onChoose" plain>筛选</el-button>
+                            <el-button style="margin-left: 6px" type="success" icon="el-icon-upload" @click="execute('update', '更新')" plain>在线更新</el-button>
+                            <el-dropdown style="margin-left: 16px" @command="handleCommand">
+                                <span class="el-dropdown-link">
+                                    反代管理<i class="el-icon-arrow-down el-icon--right"></i>
+                                </span>
+                                <el-dropdown-menu slot="dropdown">
+                                    <el-dropdown-item command="reload,重载">重载</el-dropdown-item>
+                                    <el-tooltip class="item" effect="dark" content="请手动点击restart.bat" placement="left">
+                                        <el-dropdown-item command="restart,重启" disabled="">重启</el-dropdown-item>
+                                    </el-tooltip>
+                                    <el-tooltip class="item" effect="dark" content="停止nginx,网页会停止" placement="left">
+                                        <el-dropdown-item command="stop,停止">
+                                            <span style="color: #F56C6C">停止</span>
+                                        </el-dropdown-item>
+                                    </el-tooltip>
+                                    <el-tooltip class="item" effect="dark" content="杀死进程,网页会停止" placement="left">
+                                        <el-dropdown-item command="kill,强行停止">
+                                                <span style="color: #F56C6C">强行停止</span>
+                                        </el-dropdown-item>
+                                    </el-tooltip>
+                                </el-dropdown-menu>
+                            </el-dropdown>
+                        </el-form-item>
+                    </el-form>
+                    <el-tooltip class="item" effect="dark" content="查看搜索详细信息" placement="bottom">
+                        <el-button style="float: right" @click="showConsole = !showConsole" type="info" icon="el-icon-view" circle></el-button>
+                    </el-tooltip>
+                </el-row>
+                <el-row>
+                    <div id="console" v-show="showConsole"></div>
+                </el-row>
+            </el-row>
+        </el-header>
+        <el-main id="content">
+            <div id="result-body">
+                <div id="results" v-if="results != null && results.length > 0">
+                    <search-result v-for="(item, index) in show_results" :result="item" :key="index"></search-result>
+                </div>
+                <div v-else style="text-align: center;color: #999999;font-size: 24px">
+                    <div v-if="searching && inputNotNull" class="el-loading-spinner"><svg viewBox="25 25 50 50" class="circular"><circle cx="50" cy="50" r="20" fill="none" class="path"></circle></svg><!----></div>
+                    <el-empty v-else description="无结果"></el-empty>
+                </div>
+            </div>
+        </el-main>
+    </el-container>
+</div>
+</body>
+<script src="js/uyume-parse.js"></script>
+<script>
+    Vue.component('search-result', {
+        props:['result'],
+        template: '<div class="result">\n' +
+            '                <el-row :gutter="20" class="result-row">\n' +
+            '                    <el-col :span="4" style="min-width: 140px;max-width: 160px">\n' +
+            '                        <a :href="result.url" target="_blank">\n' +
+            '                            <div class="image">\n' +
+            '                                <img :src="result.image" :alt="result.title">\n' +
+            '                            </div>\n' +
+            '                        </a>\n' +
+            '                    </el-col>\n' +
+            '                    <el-col :span="18" style="min-width: 500px">\n' +
+            '                        <div class="title">\n' +
+            '                            <el-link :underline="false" :href="result.url" target="_blank">{{result.title}}</el-link>\n' +
+            '                        </div>\n' +
+            '                        <div class="source"><span>来自 {{result.source}}</span><span>共 {{result.total}} 集 => (；´д｀)ゞ集数不一定准确 </span></div>\n' +
+            '                        <div class="info">{{result.info}}</div>\n' +
+            '                    </el-col>\n' +
+            '                </el-row>\n' +
+            '            </div>'
+    })
+
+    new Vue({
+        el: '#app',
+        data: function() {
+            return {
+                version: {
+                    version: "未知"
+                },
+                results: [],
+                show_results: [],
+                input: "",
+                drawer: false,
+                showConsole: false,
+                choose: false,
+                chooseValue: '',
+                activeNames: [],
+                searching: false,
+                searchIndex: 0,
+                searchComponents: [
+                    {
+                        index: 0,
+                        name: 'yinghua',
+                        source: parse.yinghua.source,
+                        limit: 0
+                    },
+                    {
+                        index: 1,
+                        name: 'mxdm',
+                        source: parse.mxdm.source,
+                        limit: 0
+                    }
+                ],
+                enableSearchComponents : []
+            }
+        },
+        created() {
+            this.getCurrentVersion()
+            let enableSearchComponents = localStorage.getItem("enableSearchComponents")
+            if (enableSearchComponents != null) {
+                enableSearchComponents = JSON.parse(enableSearchComponents)
+                for (let component of enableSearchComponents) {
+                    this.searchComponents[component.index].limit = component.limit
+                    this.enableSearchComponents.push(this.searchComponents[component.index])
+                }
+            } else {
+                this.enableSearchComponents.push(...this.searchComponents)
+            }
+        },
+        computed: {
+            inputNotNull() {
+                return this.input != null && this.input.length > 0
+            }
+        },
+        methods: {
+            getCurrentVersion() {
+                $.get("/version.json", (data, status) => {
+                    if ('success' === status) {
+                        this.version = data
+                        this.$message({
+                            message: '获取当前本地版本成功',
+                            type: 'success'
+                        });
+                    } else {
+                        this.$message({
+                            message: '获取当前本地版本失败',
+                            type: 'warning'
+                        });
+                    }
+                })
+            },
+            handleClose(done) {
+                done()
+                localStorage.setItem("enableSearchComponents", JSON.stringify(this.enableSearchComponents))
+                this.$message({
+                    message: '设置保存成功',
+                    type: 'success'
+                });
+            },
+            handleSelectionChange(val) {
+                this.enableSearchComponents = val
+                console.log("目前已启用的搜素源：", this.enableSearchComponents)
+            },
+            onFinish() {
+                if (++ this.searchIndex >= this.enableSearchComponents.length) {
+                    this.searching = false
+                    this.searchIndex = 0
+                    this.show_results.push(...this.results)
+                }
+            },
+            onSubmit() {
+                if (this.inputNotNull) {
+                    console.log("搜索中...")
+                    this.show_results = []
+                    this.results = []
+                    this.searching = true
+                    $("#console").text('')
+                    console.log("将搜索来源：", this.enableSearchComponents)
+                    try {
+                        for (let component of this.enableSearchComponents) {
+                            parse.search(parse[component.name], this.input, component.limit, (results) => {
+                                this.results.push(...results)
+                                this.onFinish()
+                            })
+                        }
+                    } catch (e) {
+                        console.log("搜索过程中发生错误：", e)
+                        this.searching = false
+                        this.searchIndex = 0
+                    }
+                }
+            },
+            onSetting() {
+                console.log("设置搜索源...")
+                this.drawer = true
+                this.$nextTick(() => {
+                    for (let select of this.enableSearchComponents) {
+                        this.$refs.searchComponentsSetting.toggleRowSelection(select, true)
+                    }
+                })
+            },
+            onChoose() {
+                console.log("筛选来源：", this.chooseValue)
+                if (this.chooseValue == null || this.chooseValue.length === 0) {
+                    this.show_results = this.results
+                } else {
+                    this.show_results = []
+                    for (let result of this.results) {
+                        if (this.chooseValue.includes(result.source)) {
+                            this.show_results.push(result)
+                        }
+                    }
+                }
+            },
+            execute(command, info) {
+                console.log(command, info)
+                $.get("http://localhost:12077/ececute?bat="+command+".bat", (data, status) => {
+                    if ('success' === status) {
+                        this.$message({
+                            message: info+'请求发送成功',
+                            type: 'success'
+                        });
+                    }
+                })
+            },
+            handleCommand(command) {
+                let info = command.split(",")
+                this.execute(info[0], info[1])
+            },
+            update() {
+                this.execute("update", "更新")
+            }
+        }
+    })
+
+</script>
+</html>
