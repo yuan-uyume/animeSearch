@@ -311,9 +311,10 @@
                     if (status === 'success') {
                         if (data.version > this.version.version) {
                             this.execute("update", "更新")
+                            this.getCurrentVersion()
                         } else {
                             this.$message({
-                                message: '无需更新',
+                                message: '已是最新版本，无需更新',
                                 type: 'success'
                             });
                         }
