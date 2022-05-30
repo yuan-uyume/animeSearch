@@ -206,7 +206,7 @@
             } else {
                 this.enableSearchComponents.push(...this.searchComponents)
             }
-            this.timer = setInterval(this.getCurrentVersion(true), 1000)
+            this.timer = setInterval(() => this.getCurrentVersion(true), 10000)
         },
         destroy() {
             clearInterval(this.timer)
@@ -218,6 +218,7 @@
         },
         methods: {
             getCurrentVersion(flag) {
+                console.log("获取当前版本中...")
                 $.get("/version.json", (data, status) => {
                     if ('success' === status) {
                         if (!flag) {
@@ -301,12 +302,12 @@
             },
             execute(command, info) {
                 console.log(command, info)
+                this.$message({
+                    message: info+'请求发送成功',
+                    type: 'success'
+                });
                 $.get("http://localhost:12077/ececute?bat="+command+".bat", (data, status) => {
                     if ('success' === status) {
-                        this.$message({
-                            message: info+'请求发送成功',
-                            type: 'success'
-                        });
                         if ('update' === command) {
                             this.getCurrentVersion()
                         }
