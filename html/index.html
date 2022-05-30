@@ -190,7 +190,8 @@
                         limit: 0
                     }
                 ],
-                enableSearchComponents : []
+                enableSearchComponents : [],
+                timer: null
             }
         },
         created() {
@@ -205,6 +206,10 @@
             } else {
                 this.enableSearchComponents.push(...this.searchComponents)
             }
+            this.timer = setInterval(this.getCurrentVersion(true), 1000)
+        },
+        destroy() {
+            clearInterval(this.timer)
         },
         computed: {
             inputNotNull() {
@@ -212,14 +217,17 @@
             }
         },
         methods: {
-            getCurrentVersion() {
+            getCurrentVersion(flag) {
                 $.get("/version.json", (data, status) => {
                     if ('success' === status) {
+                        if (!flag) {
+                            this.$message({
+                                message: '获取当前本地版本成功',
+                                type: 'success'
+                            });
+                        }
                         this.version = data
-                        this.$message({
-                            message: '获取当前本地版本成功',
-                            type: 'success'
-                        });
+
                     } else {
                         this.$message({
                             message: '获取当前本地版本失败',
@@ -299,6 +307,9 @@
                             message: info+'请求发送成功',
                             type: 'success'
                         });
+                        if ('update' === command) {
+                            this.getCurrentVersion()
+                        }
                     }
                 })
             },
@@ -309,9 +320,9 @@
             update() {
                 $.get(this.version.update.baseUrl + "html/version.json", (data, status) => {
                     if (status === 'success') {
+                        data = JSON.parse(data)
                         if (data.version > this.version.version) {
                             this.execute("update", "更新")
-                            this.getCurrentVersion()
                         } else {
                             this.$message({
                                 message: '已是最新版本，无需更新',
