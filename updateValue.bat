@@ -11,5 +11,5 @@ echo 开始下载
 %download% -d html\js "%urlbase%html/js/uyume-parse.js"
 %download% -d html\css "%urlbase%html/css/my.css"
 %download% -d openresty\conf "%urlbase%openresty/conf/nginx.conf"
-echo 下载结束...重载配置
+echo 下载结束，重载配置...
 openresty\nginx -s reload -c openresty\conf\nginx.conf
