@@ -1,3 +1,9 @@
 {
-  "version": 0.1
+  "version": 0.1,
+  "update" : {
+    "baseUrl": "https://raw.fastgit.org/dakerj/animeSearch/master/",
+    "needUpdate" : [
+      "html/index.html","html/js/uyume-parse.js","html/css/my.css","openresty/conf/nginx.conf"
+    ]
+  }
 }

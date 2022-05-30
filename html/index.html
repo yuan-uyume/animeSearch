@@ -307,7 +307,23 @@
                 this.execute(info[0], info[1])
             },
             update() {
-                this.execute("update", "更新")
+                $.get(this.version.update.baseUrl + "html/version.json", (data, status) => {
+                    if (status === 'success') {
+                        if (data.version > this.version.version) {
+                            this.execute("update", "更新")
+                        } else {
+                            this.$message({
+                                message: '无需更新',
+                                type: 'success'
+                            });
+                        }
+                    }else {
+                        this.$message({
+                            message: '无法获取更新信息',
+                            type: 'warning'
+                        });
+                    }
+                })
             }
         }
     })
