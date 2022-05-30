@@ -4,8 +4,11 @@
 综合动漫搜搜
 
 ##### 支持计划
-- [x] 樱花动漫
-- [x] MX动漫 
+- [x] [樱花动漫](https://www.yinhuadm.com/)
+- [x] [MX动漫](http://www.mxdm.cc/) 
+- [ ] [AGE动漫](https://www.agemys.com/)
+- [ ] [风车动漫(P)](https://www.dm530p.me/)
+- [ ] [ZzzFun动漫](http://www.zzzfun.com/)
 
 #### 软件架构
 nginx
