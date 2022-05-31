@@ -1,4 +1,13 @@
 let parse = {
+    host: "localhost",
+    port: "12077",
+    ssl_port: "22077",
+    getHttp: () => {
+        return "http://"+parse.host+":"+parse.port+"/"
+    },
+    getHttps: () => {
+        return "https://"+parse.host+":"+parse.ssl_port+"/"
+    },
     log: (out, component,...data) => {
         console.log(component.source + " => ",  ...data)
         if (out) {
@@ -92,13 +101,13 @@ let parse = {
         }
     },
     yinghua: {
-        url: "http://localhost:12077/yinhua/vch.html?wd=",
+        url: "yinhua/vch.html?wd=",
         url_base: "http://yinhuadm.com/",
         source: "樱花动漫(www.yinhuadm.com)",
-        page: "http://localhost:12077/yinhua/vch{word}/page/{page}.html",
+        page: "yinhua/vch{word}/page/{page}.html",
         pageSize: 10,
         getFirstUrl: (word) => {
-            return parse.yinghua.url + word
+            return parse.getHttp() + parse.yinghua.url + word
         },
         getTotal: (html) => {
             return $(html).children(".tame").find("em").html()
@@ -110,7 +119,7 @@ let parse = {
             return parse.yinghua.getResult(html)
         },
         getPageUrl: (word, page) => {
-            return parse.yinghua.page.replace('{word}', word).replace('{page}', page)
+            return parse.getHttp() + parse.yinghua.page.replace('{word}', word).replace('{page}', page)
         },
         parseResult: (doms) => {
             parse.log(false, parse.yinghua, "开始解析樱花结果...", doms)
@@ -139,16 +148,16 @@ let parse = {
         },
     },
     mxdm: {
-        url: "http://localhost:12077/mxdm/search/-------------.html?wd=",
+        url: "mxdm/search/-------------.html?wd=",
         url_base: "http://www.mxdm.cc",
         source: "MX动漫(www.mxdm.cc)",
-        page: "http://localhost:12077/mxdm/search/{word}----------{page}---.html",
+        page: "mxdm/search/{word}----------{page}---.html",
         pageSize: 10,
         getFirstUrl: (word) => {
-            return parse.mxdm.url + word
+            return parse.getHttp() + parse.mxdm.url + word
         },
         getPageUrl: (word, page) => {
-          return parse.mxdm.page.replace('{word}', word).replace('{page}', page)
+          return parse.getHttp() + parse.mxdm.page.replace('{word}', word).replace('{page}', page)
         },
         getTotal: (html) => {
             let total = $(html)[78].innerText
@@ -194,6 +203,66 @@ let parse = {
                 results.push(result)
             }
             parse.log(false, parse.mxdm, "获得mx解析结果：", results)
+            return results
+        }
+    },
+    age: {
+        url: "agesearch?query={word}&page=1",
+        url_base: "http://www.agemys.com",
+        source: "AGE动漫(www.agemys.com)",
+        page: "agesearch?query={word}&page={page}",
+        pageSize: 10,
+        getFirstUrl: (word) => {
+            return parse.getHttp() + parse.age.url.replace("{word}", word)
+        },
+        getPageUrl: (word, page) => {
+            return parse.getHttp() + parse.age.page.replace('{word}', word).replace('{page}', page)
+        },
+        getTotal: (html) => {
+            let total = $(html).find("#result_count").text()
+            let reg = /(\d+)/g
+            if (total.match(reg)) {
+                total = RegExp.$1
+            } else {
+                total = null
+            }
+            return total
+
+        },
+        getResult: (html) => {
+            return $(html).find('.cell')
+        },
+        getRealResult: (html) => {
+            return parse.age.getResult(html)
+        },
+        parseResult: (doms) => {
+            parse.log(false, parse.age, "开始解析age结果...", doms)
+            let results = []
+            for (let dom of doms) {
+                let img_dom = $(dom).find('.cell_poster')
+                let total = $(dom).find('.newname').text()
+                let reg = /(\d+)[集|话]/g
+                if (total.match(reg)) {
+                    total = RegExp.$1
+                } else {
+                    let reg = /(\d+-(\d+))/g
+                    if (total.match(reg)) {
+                        total = RegExp.$2
+                    } else {
+                        total = '我不知道多少'
+                    }
+                }
+                let result = {
+                    url: parse.age.url_base + $(img_dom).attr('href'),
+                    image: $(img_dom).children('img').attr('src'),
+                    source: parse.age.source,
+                    title: $(dom).find('.cell_imform_name').text(),
+                    info: $(dom).find('.cell_imform_desc').text(),
+                    total: total
+                }
+                results.push(result)
+            }
+            parse.log(false, parse.age, "获得mx解析结果：", results)
             return results
         }
     }

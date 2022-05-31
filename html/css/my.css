@@ -84,3 +84,9 @@
     line-height: 38px;
     height: 38px;
 }
+
+.info {
+    max-height: 98px;
+    overflow-y: hidden;
+    font-size: 14px;
+}
