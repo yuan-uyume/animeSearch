@@ -32,7 +32,7 @@ let parse = {
         limit = parseInt(limit)
         let pages = parse.getInt(total, pageSize)
         let end = limit === 0? total : total > limit ? limit : total;
-        let endSize = end % pageSize
+        let endSize = limit === pageSize ? limit : end % pageSize
         end = parse.getInt(end, pageSize)
         end = end > total ? total : end
         return {
@@ -47,22 +47,28 @@ let parse = {
         let url = component.getFirstUrl(word)
         parse.log(true, component, "开始初次获取结果("+limit+")...", url)
         // 从MX获得结果，遍历页码直到达到限制上限
-        $.get(url, (data, status) => {
-            parse.log(false, "初次请求状态：",status)
-            if (status === "success") {
+        $.ajax({
+            url: url,
+            type: 'get',
+            timeout: 6000,
+            success: (data) => {
+                parse.log(false, component, "初次请求状态：成功")
                 let result = component.getResult(data)
                 let total = component.getTotal(data)
                 if (result == null || total == null || total == 0) {
                     parse.log(true, component, "未获取到总数，无法继续结束")
-                    callback([])
+                    callback([],"no total")
+                    return;
                 }
                 let pageInfo = parse.getPages(total, component.pageSize, limit)
                 parse.log(true, component, "获得结果信息 => 总数", total, "页数", pageInfo.pages, "结束页码", pageInfo.end, "结束数量", pageInfo.endSize)
                 let parseResults = component.parseResult(result)
                 parse.handleParseResults(component, parseResults, word, page, pageInfo.end, pageInfo.endSize, all_results, callback)
-            } else {
-                parse.log(false, component, "检测到请求出错，返回数据...", all_results)
-                callback(all_results)
+            },
+            error: (xhr,errorText,errorType) => {
+                parse.log(true, component, "检测到请求出错("+errorType+")，返回数据...")
+                console.log(errorText, errorType)
+                callback(all_results, errorType)
             }
         })
     },
@@ -70,15 +76,20 @@ let parse = {
         page ++;
         let url = component.getPageUrl(word, page)
         parse.log(true, component, "开始第"+ page +"获取结果...", url)
-        $.get(url, (data, status) => {
-            parse.log(false, component, "第"+ page +"次请求状态：", status)
-            if (status === "success") {
+        $.ajax({
+            url: url,
+            type: 'get',
+            timeout: 6000,
+            success: (data) => {
+                parse.log(false, component, "第"+ page +"次请求状态：成功")
                 let results = component.getRealResult(data)
                 let parseResults = component.parseResult(results)
                 parse.handleParseResults(component, parseResults, word, page, end, endSize, all_results, callback)
-            } else {
-                parse.log(false, component, "检测到请求出错，返回数据...", all_results)
-                callback(all_results)
+            },
+            error: (xhr,errorText,errorType) => {
+                parse.log(true, component, "检测到请求出错("+errorType+")，返回数据...")
+                console.log(errorText, errorType)
+                callback(all_results, errorType)
             }
         })
     },
@@ -208,10 +219,10 @@ let parse = {
     },
     age: {
         url: "agesearch?query={word}&page=1",
-        url_base: "http://www.agemys.com",
+        url_base: "https://www.agemys.com",
         source: "AGE动漫(www.agemys.com)",
         page: "agesearch?query={word}&page={page}",
-        pageSize: 10,
+        pageSize: 24,
         getFirstUrl: (word) => {
             return parse.getHttp() + parse.age.url.replace("{word}", word)
         },
@@ -262,8 +273,126 @@ let parse = {
                 }
                 results.push(result)
             }
-            parse.log(false, parse.age, "获得mx解析结果：", results)
+            parse.log(false, parse.age, "获得age解析结果：", results)
             return results
         }
-    }
+    },
+    dm530p: {
+        url: "dmps_all?ex=1&kw=",
+        url_base: "https://www.dm530p.com",
+        source: "风车动漫(www.dm530p.com)",
+        page: "dmps_all?kw={word}&pagesize=24&pageindex={page}",
+        pageSize: 24,
+        getFirstUrl: (word) => {
+            return parse.getHttp() + parse.dm530p.url + word
+        },
+        getPageUrl: (word, page) => {
+            return parse.getHttp() + parse.dm530p.page.replace('{word}', word).replace('{page}', page - 1)
+        },
+        getTotal: (html) => {
+            let total = $(html).find("#gohome").find("h1").text()
+            let reg = /(\d+)/g
+            if (total.match(reg)) {
+                total = RegExp.$1
+            } else {
+                total = null
+            }
+            return total
+
+        },
+        getResult: (html) => {
+            return $(html).find('.lpic').find("li")
+        },
+        getRealResult: (html) => {
+            return parse.dm530p.getResult(html)
+        },
+        parseResult: (doms) => {
+            parse.log(false, parse.dm530p, "开始解析风车结果...", doms)
+            let results = []
+            for (let dom of doms) {
+                let img_dom = $(dom).children('a')
+                let total = $(dom).find('font').text()
+                let reg = /(\d+)[集|话]/g
+                if (total.match(reg)) {
+                    total = RegExp.$1
+                } else {
+                    if (total.match(reg)) {
+                        total = RegExp.$2
+                    } else if (total !== "全集"){
+                        total = '我不知道多少'
+                    }
+                }
+                let result = {
+                    url: parse.dm530p.url_base + $(img_dom).attr('href'),
+                    image: $(img_dom).children('img').attr('src'),
+                    source: parse.dm530p.source,
+                    title: $(dom).children('h2').text(),
+                    info: $(dom).children('p').text(),
+                    total: total
+                }
+                results.push(result)
+            }
+            parse.log(false, parse.dm530p, "获得风车解析结果：", results)
+            return results
+        }
+    },
+    zzzfun: {
+        url: "zzzfun/vod_search.html?wd=",
+        url_base: "http://www.zzzfun.com/",
+        source: "zzzFun(www.zzzfun.com)",
+        page: "zzzfun/vod_search_page_{page}_wd_{word}.html",
+        pageSize: 10,
+        getFirstUrl: (word) => {
+            return parse.getHttp() + parse.zzzfun.url + word
+        },
+        getPageUrl: (word, page) => {
+            return parse.getHttp() + parse.zzzfun.page.replace('{word}', word).replace('{page}', page - 1)
+        },
+        getTotal: (html) => {
+            let total = $(html).find("script")[0].innerText
+            let reg = /(\d+)/g
+            if (total.match(reg)) {
+                total = RegExp.$1
+            } else {
+                total = null
+            }
+            return total
+
+        },
+        getResult: (html) => {
+            return $(html).find('.show-list').find("li")
+        },
+        getRealResult: (html) => {
+            return parse.zzzfun.getResult(html)
+        },
+        parseResult: (doms) => {
+            parse.log(false, parse.dm530p, "开始解析zzzFun结果...", doms)
+            let results = []
+            for (let dom of doms) {
+                let img_dom = $(dom).children('a')
+                let total = $(dom).find('.color').text()
+                let reg = /(\d+)[集|话]\//g
+                if (total.match(reg)) {
+                    total = RegExp.$1
+                } else {
+                    if (total.match(reg)) {
+                        total = RegExp.$2
+                    } else if (total !== "全集"){
+                        total = '我不知道多少'
+                    }
+                }
+                let result = {
+                    url: parse.zzzfun.url_base + $(img_dom).attr('href'),
+                    image: $(img_dom).children('img').attr('src'),
+                    source: parse.zzzfun.source,
+                    title: $(dom).children('div').children('h2').text(),
+                    info: $(dom).find('.juqing').find('p').text(),
+                    total: total
+                }
+                results.push(result)
+            }
+            parse.log(false, parse.zzzfun, "获得zzzFun解析结果：", results)
+            return results
+        }
+    },
 }

@@ -12,14 +12,13 @@
 - [x] nginx反代控制
 - [x] 在线更新
 - [ ] 分页
-- 
 
 #### 支持计划
 - [x] [樱花动漫](https://www.yinhuadm.com/)
 - [x] [MX动漫](http://www.mxdm.cc/) 
 - [x] [AGE动漫](https://www.agemys.com/)
-- [ ] [风车动漫(P)](https://www.dm530p.me/)
-- [ ] [ZzzFun动漫](http://www.zzzfun.com/)
+- [ ] [风车动漫(P)](https://www.dm530p.com/) 有点问题ssl接不上，谁来告诉我正确的网站
+- [x] [ZzzFun动漫](http://www.zzzfun.com/)
 
 ### 软件架构
 nginx

@@ -28,6 +28,7 @@
                 style="width: 100%"
                 @selection-change="handleSelectionChange">
             <el-table-column
+                    :selectable="isSelectable"
                     type="selection"
                     width="55">
             </el-table-column>
@@ -194,9 +195,22 @@
                         name: 'age',
                         source: parse.age.source,
                         limit: 0
+                    },
+                    {
+                        index: 3,
+                        name: 'dm530p',
+                        source: parse.dm530p.source,
+                        limit: 0
+                    },
+                    {
+                        index: 4,
+                        name: 'zzzfun',
+                        source: parse.zzzfun.source,
+                        limit: 0
                     }
                 ],
                 enableSearchComponents : [],
+                disableSearchComponents: [3],
                 timer: null
             }
         },
@@ -207,10 +221,16 @@
                 enableSearchComponents = JSON.parse(enableSearchComponents)
                 for (let component of enableSearchComponents) {
                     this.searchComponents[component.index].limit = component.limit
-                    this.enableSearchComponents.push(this.searchComponents[component.index])
+                    if (this.isSelectable(component, component.index)) {
+                        this.enableSearchComponents.push(this.searchComponents[component.index])
+                    }
                 }
             } else {
-                this.enableSearchComponents.push(...this.searchComponents)
+                for (let component of this.searchComponents) {
+                    if (this.isSelectable(component, component.index)) {
+                        this.enableSearchComponents.push(component)
+                    }
+                }
             }
             this.timer = setInterval(() => this.getCurrentVersion(true), 10000)
         },
@@ -223,6 +243,9 @@
             }
         },
         methods: {
+            isSelectable(row, index) {
+                return !this.disableSearchComponents.includes(index)
+            },
             getCurrentVersion(flag) {
                 console.log("获取当前版本中...")
                 $.get("/version.json", (data, status) => {
@@ -272,8 +295,22 @@
                     console.log("将搜索来源：", this.enableSearchComponents)
                     try {
                         for (let component of this.enableSearchComponents) {
-                            parse.search(parse[component.name], this.input, component.limit, (results) => {
-                                this.results.push(...results)
+                            parse.search(parse[component.name], this.input, component.limit, (results, status) => {
+                                if (status) {
+                                    if ('timeout' === status) {
+                                        this.$message({
+                                            message: component.source+'获取信息超时...看结果详情了解更多',
+                                            type: 'warning'
+                                        });
+                                    } else {
+                                        this.$message({
+                                            message: component.source+'获取信息出错('+status+')...看结果详情了解更多',
+                                            type: 'warning'
+                                        });
+                                    }
+                                } else {
+                                    this.results.push(...results)
+                                }
                                 this.onFinish()
                             })
                         }
