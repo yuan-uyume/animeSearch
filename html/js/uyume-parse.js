@@ -46,7 +46,7 @@ let parse = {
         let page = 1
         let url = component.getFirstUrl(word)
         parse.log(true, component, "开始初次获取结果("+limit+")...", url)
-        // 从MX获得结果，遍历页码直到达到限制上限
+        // 获得结果，遍历页码直到达到限制上限
         $.ajax({
             url: url,
             type: 'get',
@@ -57,8 +57,12 @@ let parse = {
                     let result = component.getResult(data)
                     let total = component.getTotal(data)
                     if (result == null || total == null || total == 0) {
-                        parse.log(true, component, "未获取到总数，无法继续结束")
-                        callback([],"no total")
+                        if (total == 0) {
+                            callback([])
+                        } else {
+                            parse.log(true, component, "未获取到总数，无法继续结束")
+                            callback([],"no total")
+                        }
                         return;
                     }
                     let pageInfo = parse.getPages(total, component.pageSize, limit)

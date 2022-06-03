@@ -296,17 +296,15 @@
                         for (let component of this.enableSearchComponents) {
                             parse.search(parse[component.name], this.input, component.limit, (results, status) => {
                                 if (status) {
-                                    if ('timeout' === status) {
-                                        this.$message({
-                                            message: component.source+'获取信息超时...看结果详情了解更多',
-                                            type: 'warning'
-                                        });
-                                    } else {
-                                        this.$message({
-                                            message: component.source+'获取信息出错('+status+')...看结果详情了解更多',
-                                            type: 'warning'
-                                        });
+                                    let txt = status
+                                    switch (status) {
+                                        case 'timeout': txt = '超时';break;
+                                        case 'no total': txt = '无结果';break;
                                     }
+                                    this.$message({
+                                        message: component.source+'获取信息出错('+txt+')...看结果详情了解更多',
+                                        type: 'warning'
+                                    });
                                 } else {
                                     this.results.push(...results)
                                     this.show_results.push(...this.results)
