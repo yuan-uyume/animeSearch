@@ -53,17 +53,21 @@ let parse = {
             timeout: 6000,
             success: (data) => {
                 parse.log(false, component, "初次请求状态：成功")
-                let result = component.getResult(data)
-                let total = component.getTotal(data)
-                if (result == null || total == null || total == 0) {
-                    parse.log(true, component, "未获取到总数，无法继续结束")
-                    callback([],"no total")
-                    return;
+                try {
+                    let result = component.getResult(data)
+                    let total = component.getTotal(data)
+                    if (result == null || total == null || total == 0) {
+                        parse.log(true, component, "未获取到总数，无法继续结束")
+                        callback([],"no total")
+                        return;
+                    }
+                    let pageInfo = parse.getPages(total, component.pageSize, limit)
+                    parse.log(true, component, "获得结果信息 => 总数", total, "页数", pageInfo.pages, "结束页码", pageInfo.end, "结束数量", pageInfo.endSize)
+                    let parseResults = component.parseResult(result)
+                    parse.handleParseResults(component, parseResults, word, page, pageInfo.end, pageInfo.endSize, all_results, callback)
+                } catch (e) {
+                    callback(all_results, e)
                 }
-                let pageInfo = parse.getPages(total, component.pageSize, limit)
-                parse.log(true, component, "获得结果信息 => 总数", total, "页数", pageInfo.pages, "结束页码", pageInfo.end, "结束数量", pageInfo.endSize)
-                let parseResults = component.parseResult(result)
-                parse.handleParseResults(component, parseResults, word, page, pageInfo.end, pageInfo.endSize, all_results, callback)
             },
             error: (xhr,errorText,errorType) => {
                 parse.log(true, component, "检测到请求出错("+errorType+")，返回数据...")
@@ -81,10 +85,14 @@ let parse = {
             type: 'get',
             timeout: 6000,
             success: (data) => {
-                parse.log(false, component, "第"+ page +"次请求状态：成功")
-                let results = component.getRealResult(data)
-                let parseResults = component.parseResult(results)
-                parse.handleParseResults(component, parseResults, word, page, end, endSize, all_results, callback)
+                try {
+                    parse.log(false, component, "第"+ page +"次请求状态：成功")
+                    let results = component.getRealResult(data)
+                    let parseResults = component.parseResult(results)
+                    parse.handleParseResults(component, parseResults, word, page, end, endSize, all_results, callback)
+                } catch (e) {
+                    callback(all_results, e)
+                }
             },
             error: (xhr,errorText,errorType) => {
                 parse.log(true, component, "检测到请求出错("+errorType+")，返回数据...")
@@ -94,6 +102,7 @@ let parse = {
         })
     },
     handleParseResults: (component, parseResults, word, page, end, endSize, all_results, callback) => {
+
         if (parseResults != null && parseResults.length > 0) {
             if (page >= end) {
                 for (let i = 0; i < endSize; i++) {
@@ -171,7 +180,7 @@ let parse = {
           return parse.getHttp() + parse.mxdm.page.replace('{word}', word).replace('{page}', page)
         },
         getTotal: (html) => {
-            let total = $(html)[78].innerText
+            let total = $(html)[78] ? $(html)[78].innerText :  $(html)[69].innerText
             let reg = /(\d+)/g
             if (total.match(reg)) {
                 total = RegExp.$1

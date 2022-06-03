@@ -216,10 +216,10 @@
         },
         created() {
             this.getCurrentVersion()
-            let enableSearchComponents = localStorage.getItem("enableSearchComponents")
-            if (enableSearchComponents != null) {
-                enableSearchComponents = JSON.parse(enableSearchComponents)
-                for (let component of enableSearchComponents) {
+            let localSearchComponents = localStorage.getItem("searchComponents")
+            if (localSearchComponents != null) {
+                localSearchComponents = JSON.parse(localSearchComponents)
+                for (let component of localSearchComponents) {
                     this.searchComponents[component.index].limit = component.limit
                     if (this.isSelectable(component, component.index)) {
                         this.enableSearchComponents.push(this.searchComponents[component.index])
@@ -268,7 +268,7 @@
             },
             handleClose(done) {
                 done()
-                localStorage.setItem("enableSearchComponents", JSON.stringify(this.enableSearchComponents))
+                localStorage.setItem("searchComponents", JSON.stringify(this.searchComponents))
                 this.$message({
                     message: '设置保存成功',
                     type: 'success'
@@ -282,7 +282,6 @@
                 if (++ this.searchIndex >= this.enableSearchComponents.length) {
                     this.searching = false
                     this.searchIndex = 0
-                    this.show_results.push(...this.results)
                 }
             },
             onSubmit() {
@@ -310,6 +309,7 @@
                                     }
                                 } else {
                                     this.results.push(...results)
+                                    this.show_results.push(...this.results)
                                 }
                                 this.onFinish()
                             })
