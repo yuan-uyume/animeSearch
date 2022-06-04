@@ -54,12 +54,14 @@
                     <el-row style="height: 48px;">
                         <el-col :span="16"  style="height: 48px;min-width: 300px">
                             <el-form-item label="搜索内容" name="input">
-                                <el-input style="min-width: 300px"
-                                        :placeholder="'uyume爱你φ(>ω<*)  version:' + version.version"
+                                <el-autocomplete
+                                        class="inline-input"
+                                        style="min-width: 300px; width: 100%"
                                         v-model="input"
+                                        :fetch-suggestions="querySearch"
+                                        :placeholder="'uyume爱你φ(>ω<*)  version:' + version.version"
                                         @keydown.enter.native="onSubmit"
-                                        >
-                                </el-input>
+                                ></el-autocomplete>
                             </el-form-item>
                         </el-col>
                         <el-col style="height: 48px;" :span="8">
@@ -211,27 +213,14 @@
                 ],
                 enableSearchComponents : [],
                 disableSearchComponents: [3],
+                restaurants: [],
                 timer: null
             }
         },
         created() {
             this.getCurrentVersion()
-            let localSearchComponents = localStorage.getItem("searchComponents")
-            if (localSearchComponents != null) {
-                localSearchComponents = JSON.parse(localSearchComponents)
-                for (let component of localSearchComponents) {
-                    this.searchComponents[component.index].limit = component.limit
-                    if (this.isSelectable(component, component.index)) {
-                        this.enableSearchComponents.push(this.searchComponents[component.index])
-                    }
-                }
-            } else {
-                for (let component of this.searchComponents) {
-                    if (this.isSelectable(component, component.index)) {
-                        this.enableSearchComponents.push(component)
-                    }
-                }
-            }
+            this.loadRestaurants()
+            this.loadSearchComponents()
             this.timer = setInterval(() => this.getCurrentVersion(true), 10000)
         },
         destroy() {
@@ -243,6 +232,74 @@
             }
         },
         methods: {
+            saveRestaurants() {
+                let restaurant = {
+                    value: this.input,
+                    lastTime: new Date()
+                }
+                let flag = true
+                for (let d of this.restaurants) {
+                    if (d.value === restaurant.value) {
+                        d.time ++
+                        d.lastTime = restaurant.lastTime
+                        flag = false
+                    }
+                }
+                if (flag) {
+                    restaurant.time = 1
+                    this.restaurants.push(restaurant)
+                }
+
+                this.restaurants.sort((a,b) => {
+                    return b.time === a.time ? b.lastTime.getDate() - a.lastTime.getTime() : b.time - a.time
+                })
+
+                let oldSevenDay = new Date()
+                oldSevenDay.setDate(oldSevenDay.getDate() - 7)
+                this.restaurants = this.restaurants.filter((d) => {
+                    return d.lastTime.getDate() <= oldSevenDay.getDate()
+                })
+                localStorage.setItem("restaurants", JSON.stringify(this.restaurants.slice(0,100)))
+            },
+            loadRestaurants() {
+                let restaurants = localStorage.getItem("restaurants")
+                if (restaurants != null) {
+                    restaurants = JSON.parse(restaurants)
+                    for (let d of restaurants) {
+                        d.lastTime = new Date(d.lastTime)
+                    }
+                    this.restaurants = restaurants
+                }
+            },
+            loadSearchComponents() {
+                let localSearchComponents = localStorage.getItem("searchComponents")
+                if (localSearchComponents != null) {
+                    localSearchComponents = JSON.parse(localSearchComponents)
+                    for (let component of localSearchComponents) {
+                        this.searchComponents[component.index].limit = component.limit
+                        if (this.isSelectable(component, component.index)) {
+                            this.enableSearchComponents.push(this.searchComponents[component.index])
+                        }
+                    }
+                } else {
+                    for (let component of this.searchComponents) {
+                        if (this.isSelectable(component, component.index)) {
+                            this.enableSearchComponents.push(component)
+                        }
+                    }
+                }
+            },
+            querySearch(queryString, cb) {
+                let restaurants = this.restaurants;
+                let results = queryString ? restaurants.filter(this.createFilter(queryString)) : restaurants;
+                // 调用 callback 返回建议列表的数据
+                cb(results.slice(0,7));
+            },
+            createFilter(queryString) {
+                return (restaurant) => {
+                    return (restaurant.value.toLowerCase().indexOf(queryString.toLowerCase()) === 0);
+                };
+            },
             isSelectable(row, index) {
                 return !this.disableSearchComponents.includes(index)
             },
@@ -291,6 +348,7 @@
                     this.results = []
                     this.searching = true
                     $("#console").text('')
+                    this.saveRestaurants()
                     console.log("将搜索来源：", this.enableSearchComponents)
                     try {
                         for (let component of this.enableSearchComponents) {
