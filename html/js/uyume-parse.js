@@ -170,7 +170,11 @@ let parse = {
                 if (total.match(reg)) {
                     total = RegExp.$1
                 } else {
-                    total = '我不知道多少'
+                    if (total.indexOf('完结') !== -1) {
+                        total = '更完了的'
+                    } else {
+                        total = '我不知道多少'
+                    }
                 }
                 let result = {
                     url: parse.yinghua.url_base + $(img_dom).attr('href'),
