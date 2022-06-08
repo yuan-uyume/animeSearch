@@ -61,6 +61,7 @@
                                         :fetch-suggestions="querySearch"
                                         :placeholder="'uyume爱你φ(>ω<*)  version:' + version.version"
                                         @keydown.enter.native="onSubmit"
+                                        clearable
                                 ></el-autocomplete>
                             </el-form-item>
                         </el-col>
@@ -128,6 +129,14 @@
             <div id="result-body">
                 <div id="results" v-if="results != null && results.length > 0">
                     <search-result v-for="(item, index) in show_results" :result="item" :key="index"></search-result>
+                    <el-pagination
+                            class="pagination"
+                            @current-change="handleCurrentChange"
+                            :current-page.sync="page.currentPage"
+                            :page-size="page.pageSize"
+                            layout="total, prev, pager, next, jumper"
+                            :total="page.total">
+                    </el-pagination>
                 </div>
                 <div v-else style="text-align: center;color: #999999;font-size: 24px">
                     <div v-if="searching && inputNotNull" class="el-loading-spinner"><svg viewBox="25 25 50 50" class="circular"><circle cx="50" cy="50" r="20" fill="none" class="path"></circle></svg><!----></div>
@@ -171,6 +180,12 @@
                 },
                 results: [],
                 show_results: [],
+                page_results: [],
+                page: {
+                  total: 0,
+                  pageSize: 10,
+                  currentPage: 1
+                },
                 input: "",
                 drawer: false,
                 showConsole: false,
@@ -184,30 +199,35 @@
                         index: 0,
                         name: 'yinghua',
                         source: parse.yinghua.source,
+                        enable: true,
                         limit: 0
                     },
                     {
                         index: 1,
                         name: 'mxdm',
                         source: parse.mxdm.source,
+                        enable: true,
                         limit: 0
                     },
                     {
                         index: 2,
                         name: 'age',
                         source: parse.age.source,
+                        enable: true,
                         limit: 0
                     },
                     {
                         index: 3,
                         name: 'dm530p',
                         source: parse.dm530p.source,
+                        enable: false,
                         limit: 0
                     },
                     {
                         index: 4,
                         name: 'zzzfun',
                         source: parse.zzzfun.source,
+                        enable: true,
                         limit: 0
                     }
                 ],
@@ -257,8 +277,9 @@
                 let oldSevenDay = new Date()
                 oldSevenDay.setDate(oldSevenDay.getDate() - 7)
                 this.restaurants = this.restaurants.filter((d) => {
-                    return d.lastTime.getDate() <= oldSevenDay.getDate()
+                    return d.lastTime.getDate() >= oldSevenDay.getDate()
                 })
+                console.log("保存搜索记录", this.restaurants.slice(0,100))
                 localStorage.setItem("restaurants", JSON.stringify(this.restaurants.slice(0,100)))
             },
             loadRestaurants() {
@@ -301,7 +322,7 @@
                 };
             },
             isSelectable(row, index) {
-                return !this.disableSearchComponents.includes(index)
+                return !this.disableSearchComponents.includes(index) && row.enable
             },
             getCurrentVersion(flag) {
                 console.log("获取当前版本中...")
@@ -323,8 +344,26 @@
                     }
                 })
             },
+            setPageResults(results) {
+                let temp = []
+                for (let idx in results) {
+                    temp.push(results[idx])
+                    if (idx % this.page.pageSize === this.page.pageSize - 1) {
+                        // 最后一个
+                        if (temp.length > 0) {
+                            this.page_results.push(temp)
+                        }
+                        console.log("上一页数据已补全...生成新页")
+                        temp = []
+                    }
+                }
+                this.page_results.push(temp)
+            },
             handleClose(done) {
                 done()
+                for (let comp of this.searchComponents) {
+                    comp.enable = this.enableSearchComponents.includes(comp);
+                }
                 localStorage.setItem("searchComponents", JSON.stringify(this.searchComponents))
                 this.$message({
                     message: '设置保存成功',
@@ -335,16 +374,28 @@
                 this.enableSearchComponents = val
                 console.log("目前已启用的搜素源：", this.enableSearchComponents)
             },
+            handleCurrentChange(val) {
+                this.show_results = this.page_results[val - 1]
+                console.log("当前显示", this.show_results)
+            },
+            handleCommand(command) {
+                let info = command.split(",")
+                this.execute(info[0], info[1])
+            },
             onFinish() {
                 if (++ this.searchIndex >= this.enableSearchComponents.length) {
                     this.searching = false
                     this.searchIndex = 0
+                    this.page.total = this.results.length
+                    this.setPageResults(this.results)
+                    console.log("分页数据", this.page_results)
                 }
             },
             onSubmit() {
                 if (this.inputNotNull) {
                     console.log("搜索中...")
                     this.show_results = []
+                    this.page_results = []
                     this.results = []
                     this.searching = true
                     $("#console").text('')
@@ -364,8 +415,18 @@
                                         type: 'warning'
                                     });
                                 } else {
+                                    // 将结果放入
                                     this.results.push(...results)
-                                    this.show_results.push(...this.results)
+                                    let page = this.show_results
+                                    if (page.length < this.page.pageSize) {
+                                        let temp = []
+                                        if (page.length > 0) {
+                                            temp = results.slice(0, this.page.pageSize - page.length)
+                                        } else {
+                                            temp = results.slice(0, this.page.pageSize)
+                                        }
+                                        this.show_results.push(...temp)
+                                    }
                                 }
                                 this.onFinish()
                             })
@@ -388,16 +449,21 @@
             },
             onChoose() {
                 console.log("筛选来源：", this.chooseValue)
+                let results = []
                 if (this.chooseValue == null || this.chooseValue.length === 0) {
-                    this.show_results = this.results
+                    results = this.results
                 } else {
-                    this.show_results = []
-                    for (let result of this.results) {
-                        if (this.chooseValue.includes(result.source)) {
-                            this.show_results.push(result)
+                    for (let r of this.results) {
+                        if (this.chooseValue.includes(r.source)) {
+                            results.push(r)
                         }
                     }
                 }
+                this.page.total = results.length
+                this.page.currentPage = 1
+                this.page_results = []
+                this.setPageResults(results)
+                this.show_results = this.page_results[0]
             },
             execute(command, info) {
                 console.log(command, info)
@@ -412,10 +478,6 @@
                         }
                     }
                 })
-            },
-            handleCommand(command) {
-                let info = command.split(",")
-                this.execute(info[0], info[1])
             },
             update() {
                 $.get(this.version.update.baseUrl + "html/version.json", (data, status) => {

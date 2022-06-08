@@ -68,7 +68,7 @@ let parse = {
                     let pageInfo = parse.getPages(total, component.pageSize, limit)
                     parse.log(true, component, "获得结果信息 => 总数", total, "页数", pageInfo.pages, "结束页码", pageInfo.end, "结束数量", pageInfo.endSize)
                     let parseResults = component.parseResult(result)
-                    parse.handleParseResults(component, parseResults, word, page, pageInfo.end, pageInfo.endSize, all_results, callback)
+                    parse.handleParseResults(component, parseResults, word, page, pageInfo.pages, pageInfo.end, pageInfo.endSize, all_results, callback)
                 } catch (e) {
                     callback(all_results, e)
                 }
@@ -80,7 +80,7 @@ let parse = {
             }
         })
     },
-    realSearch: (component, word, page, end, endSize, all_results, callback) => {
+    realSearch: (component, word, page, total, end, endSize, all_results, callback) => {
         page ++;
         let url = component.getPageUrl(word, page)
         parse.log(true, component, "开始第"+ page +"获取结果...", url)
@@ -93,7 +93,7 @@ let parse = {
                     parse.log(false, component, "第"+ page +"次请求状态：成功")
                     let results = component.getRealResult(data)
                     let parseResults = component.parseResult(results)
-                    parse.handleParseResults(component, parseResults, word, page, end, endSize, all_results, callback)
+                    parse.handleParseResults(component, parseResults, word, page, total, end, endSize, all_results, callback)
                 } catch (e) {
                     callback(all_results, e)
                 }
@@ -105,23 +105,38 @@ let parse = {
             }
         })
     },
-    handleParseResults: (component, parseResults, word, page, end, endSize, all_results, callback) => {
-
+    handleParseResults: (component, parseResults, word, page, total, end, endSize, all_results, callback) => {
         if (parseResults != null && parseResults.length > 0) {
-            if (page >= end) {
-                for (let i = 0; i < endSize; i++) {
-                    all_results.push(parseResults[i])
+            all_results.push(...parseResults)
+        }
+
+        if (page >= end) {
+            let source = []
+            let distResults = []
+            // 结束，但去重
+            for (let d of all_results) {
+                if (!source.includes(d.url)) {
+                    source.push(d.url)
+                    distResults.push(d)
                 }
+            }
+            let needCount = (end - 1) * component.pageSize + endSize
+            if (needCount > distResults.length) {
+                // 去重后数量低于限制,获取下一页
+                all_results = distResults
+                end ++
+                endSize = needCount - distResults.length
             } else {
-                all_results.push(...parseResults)
+                all_results = all_results.slice(0, needCount)
             }
         }
-        if (page >= end) {
+
+        if (page >= end || page >= total) {
             callback(all_results)
             parse.log(false, component, "搜索完毕，返回数据...", all_results)
-            parse.log(true, component, "搜索成功...")
+            parse.log(true, component, "搜索成功...共", all_results.length, "条结果")
         } else {
-            parse.realSearch(component, word, page, end, endSize, all_results, callback)
+            parse.realSearch(component, word, page, total, end, endSize, all_results, callback)
         }
     },
     yinghua: {
