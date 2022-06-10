@@ -1,5 +1,5 @@
 {
-  "version": 0.15,
+  "version": 0.151,
   "update" : {
     "baseUrl": "https://raw.fastgit.org/dakerj/animeSearch/master/",
     "needUpdate" : [
