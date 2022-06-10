@@ -480,6 +480,10 @@
                 })
             },
             update() {
+                this.$message({
+                    message: '正在获取更新信息，请勿重复点击',
+                    type: 'success'
+                });
                 $.get(this.version.update.baseUrl + "html/version.json", (data, status) => {
                     if (status === 'success') {
                         data = JSON.parse(data)
