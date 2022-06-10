@@ -477,7 +477,7 @@
                 $.ajax({
                     url: "http://localhost:12077/ececute?type="+command,
                     type: 'get',
-                    timeout: 6000,
+                    timeout: 10000,
                     success: (data) => {
                         if ('update' === command) {
                             this.getCurrentVersion()
