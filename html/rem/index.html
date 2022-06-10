@@ -326,8 +326,11 @@
             },
             getCurrentVersion(flag) {
                 console.log("获取当前版本中...")
-                $.get("/rem/version.json", (data, status) => {
-                    if ('success' === status) {
+                $.ajax({
+                    url: "/rem/version.json",
+                    type: 'get',
+                    timeout: 10000,
+                    success: (data) => {
                         if (!flag) {
                             this.$message({
                                 message: '获取当前本地版本成功',
@@ -335,8 +338,8 @@
                             });
                         }
                         this.version = data
-
-                    } else {
+                    },
+                    error: (xhr,errorText,errorType) => {
                         this.$message({
                             message: '获取当前本地版本失败',
                             type: 'warning'
@@ -468,14 +471,23 @@
             execute(command, info) {
                 console.log(command, info)
                 this.$message({
-                    message: info+'请求发送成功',
+                    message: info+'请求发送中...',
                     type: 'success'
                 });
-                $.get("http://localhost:12077/ececute?type="+command, (data, status) => {
-                    if ('success' === status) {
+                $.ajax({
+                    url: "http://localhost:12077/ececute?type="+command,
+                    type: 'get',
+                    timeout: 6000,
+                    success: (data) => {
                         if ('update' === command) {
                             this.getCurrentVersion()
                         }
+                    },
+                    error: (xhr,errorText,errorType) => {
+                        this.$message({
+                            message: info+'请求发送失败...',
+                            type: 'warning'
+                        });
                     }
                 })
             },
@@ -484,8 +496,11 @@
                     message: '正在获取更新信息，请勿重复点击',
                     type: 'success'
                 });
-                $.get(this.version.update.baseUrl + "html/rem/version.json", (data, status) => {
-                    if (status === 'success') {
+                $.ajax({
+                    url: this.version.update.baseUrl + "html/rem/version.json",
+                    type: 'get',
+                    timeout: 10000,
+                    success: (data) => {
                         data = JSON.parse(data)
                         if (data.version > this.version.version) {
                             this.execute("update", "版本更新至" + data.version)
@@ -495,7 +510,8 @@
                                 type: 'success'
                             });
                         }
-                    }else {
+                    },
+                    error: (xhr,errorText,errorType) => {
                         this.$message({
                             message: '无法获取更新信息',
                             type: 'warning'
