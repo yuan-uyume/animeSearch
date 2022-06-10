@@ -1,13 +1,14 @@
 <html lang="zh">
 <head>
     <title>搜索动漫 by uyume</title>
-    <script src="js/jquery-3.6.0.min.js"></script>
-    <script src="js/vue.js"></script>
+    <script src="/lib/jquery-3.6.0.min.js"></script>
+    <script src="/lib/vue.js"></script>
     <!-- 引入样式 -->
-    <link rel="stylesheet" href="el/el-ui.css">
-    <link rel="stylesheet" href="css/my.css">
+    <link rel="stylesheet" href="/lib/el/el-ui.css">
+    <link rel="stylesheet" href="/rem/my.css">
+    <script src="/rem/uyume-parse.js"></script>
     <!-- 引入组件库 -->
-    <script src="el/el-js.js"></script>
+    <script src="/lib/el/el-js.js"></script>
     <meta charset="UTF-8">
     <meta name="referrer" content="no-referrer" />
 </head>
@@ -147,7 +148,6 @@
     </el-container>
 </div>
 </body>
-<script src="js/uyume-parse.js"></script>
 <script>
     Vue.component('search-result', {
         props:['result'],
@@ -326,7 +326,7 @@
             },
             getCurrentVersion(flag) {
                 console.log("获取当前版本中...")
-                $.get("/version.json", (data, status) => {
+                $.get("/rem/version.json", (data, status) => {
                     if ('success' === status) {
                         if (!flag) {
                             this.$message({
@@ -471,7 +471,7 @@
                     message: info+'请求发送成功',
                     type: 'success'
                 });
-                $.get("http://localhost:12077/ececute?bat="+command+".bat", (data, status) => {
+                $.get("http://localhost:12077/ececute?type="+command, (data, status) => {
                     if ('success' === status) {
                         if ('update' === command) {
                             this.getCurrentVersion()
@@ -484,11 +484,11 @@
                     message: '正在获取更新信息，请勿重复点击',
                     type: 'success'
                 });
-                $.get(this.version.update.baseUrl + "html/version.json", (data, status) => {
+                $.get(this.version.update.baseUrl + "html/rem/version.json", (data, status) => {
                     if (status === 'success') {
                         data = JSON.parse(data)
                         if (data.version > this.version.version) {
-                            this.execute("update", "更新")
+                            this.execute("update", "版本更新至" + data.version)
                         } else {
                             this.$message({
                                 message: '已是最新版本，无需更新',

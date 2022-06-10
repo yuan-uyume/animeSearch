@@ -1,15 +1,10 @@
 set urlbase=https://raw.fastgit.org/dakerj/animeSearch/master/
 set download=aria2\aria2c
-echo å¼€å§‹åˆ é™¤æ—§æ–‡ä»¶...
-rm html\index.html
-rm html\version.json
-rm html\js\uyume-parse.js
-rm html\css\my.css
-rm openresty\conf\nginx.conf
-echo å¼€å§‹ä¸‹è½½
-%download% -d html -Z "%urlbase%html/index.html" "%urlbase%html/version.json"
-%download% -d html\js "%urlbase%html/js/uyume-parse.js"
-%download% -d html\css "%urlbase%html/css/my.css"
+echo ¿ªÊ¼É¾³ı¾ÉÎÄ¼ş...
+del /f html\rem\.*?
+del /f openresty\conf\nginx.conf
+echo ¿ªÊ¼ÏÂÔØ
+%download% -d html\rem -Z "%urlbase%html/index.html" "%urlbase%html/version.json" "%urlbase%html/js/uyume-parse.js" "%urlbase%html/css/my.css"
 %download% -d openresty\conf "%urlbase%openresty/conf/nginx.conf"
-echo ä¸‹è½½ç»“æŸ...é‡è½½é…ç½®
+echo ÏÂÔØ½áÊø...ÖØÔØÅäÖÃ
 openresty\nginx -s reload -c openresty\conf\nginx.conf
