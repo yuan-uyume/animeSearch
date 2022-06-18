@@ -6,7 +6,7 @@
     <!-- 引入样式 -->
     <link rel="stylesheet" href="/lib/el/el-ui.css">
     <link rel="stylesheet" href="/rem/my.css">
-    <script src="/rem/uyume-parse.js"></script>
+    <script src="/rem/uyume-core.js"></script>
     <!-- 引入组件库 -->
     <script src="/lib/el/el-js.js"></script>
     <meta charset="UTF-8">
@@ -170,7 +170,6 @@
             '                </el-row>\n' +
             '            </div>'
     })
-
     new Vue({
         el: '#app',
         data: function() {
@@ -242,6 +241,7 @@
             this.loadRestaurants()
             this.loadSearchComponents()
             this.timer = setInterval(() => this.getCurrentVersion(true), 10000)
+            uCore.init($, null)
         },
         destroy() {
             clearInterval(this.timer)
@@ -298,23 +298,23 @@
                     localSearchComponents = JSON.parse(localSearchComponents)
                     for (let component of localSearchComponents) {
                         this.searchComponents[component.index].limit = component.limit
-                        if (this.isSelectable(component, component.index)) {
+                        if (this.isEnable(component, component.index)) {
                             this.enableSearchComponents.push(this.searchComponents[component.index])
                         }
                     }
                 } else {
                     for (let component of this.searchComponents) {
-                        if (this.isSelectable(component, component.index)) {
+                        if (this.isEnable(component, component.index)) {
                             this.enableSearchComponents.push(component)
                         }
                     }
                 }
             },
-            querySearch(queryString, cb) {
+            querySearch(queryString, callback) {
                 let restaurants = this.restaurants;
                 let results = queryString ? restaurants.filter(this.createFilter(queryString)) : restaurants;
                 // 调用 callback 返回建议列表的数据
-                cb(results.slice(0,7));
+                callback(results.slice(0,7));
             },
             createFilter(queryString) {
                 return (restaurant) => {
@@ -322,6 +322,9 @@
                 };
             },
             isSelectable(row, index) {
+                return !this.disableSearchComponents.includes(index)
+            },
+            isEnable(row, index) {
                 return !this.disableSearchComponents.includes(index) && row.enable
             },
             getCurrentVersion(flag) {
@@ -406,7 +409,7 @@
                     console.log("将搜索来源：", this.enableSearchComponents)
                     try {
                         for (let component of this.enableSearchComponents) {
-                            parse.search(parse[component.name], this.input, component.limit, (results, status) => {
+                            uCore.parse.search(uCore.components[component.name], this.input, component.limit, (results, status) => {
                                 if (status) {
                                     let txt = status
                                     switch (status) {
@@ -474,21 +477,15 @@
                     message: info+'请求发送中...',
                     type: 'success'
                 });
-                $.ajax({
-                    url: "http://localhost:12077/ececute?type="+command,
-                    type: 'get',
-                    timeout: 10000,
-                    success: (data) => {
-                        if ('update' === command) {
-                            this.getCurrentVersion()
-                        }
-                    },
-                    error: (xhr,errorText,errorType) => {
-                        this.$message({
-                            message: info+'请求发送失败...',
-                            type: 'warning'
-                        });
+                uCore.proxyCommand(command, (data) => {
+                    if ('update' === command) {
+                        this.getCurrentVersion()
                     }
+                }, () => {
+                    this.$message({
+                        message: info+'请求发送失败...',
+                        type: 'warning'
+                    });
                 })
             },
             update() {
