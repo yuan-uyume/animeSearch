@@ -197,35 +197,35 @@
                     {
                         index: 0,
                         name: 'yinghua',
-                        source: parse.yinghua.source,
+                        source: uAnimeSearchCore.components.yinghua.source,
                         enable: true,
                         limit: 0
                     },
                     {
                         index: 1,
                         name: 'mxdm',
-                        source: parse.mxdm.source,
+                        source: uAnimeSearchCore.components.mxdm.source,
                         enable: true,
                         limit: 0
                     },
                     {
                         index: 2,
                         name: 'age',
-                        source: parse.age.source,
+                        source: uAnimeSearchCore.components.age.source,
                         enable: true,
                         limit: 0
                     },
                     {
                         index: 3,
                         name: 'dm530p',
-                        source: parse.dm530p.source,
+                        source: uAnimeSearchCore.components.dm530p.source,
                         enable: false,
                         limit: 0
                     },
                     {
                         index: 4,
                         name: 'zzzfun',
-                        source: parse.zzzfun.source,
+                        source: uAnimeSearchCore.components.zzzfun.source,
                         enable: true,
                         limit: 0
                     }
@@ -241,7 +241,7 @@
             this.loadRestaurants()
             this.loadSearchComponents()
             this.timer = setInterval(() => this.getCurrentVersion(true), 10000)
-            uCore.init($, null)
+            uAnimeSearchCore.init($, null)
         },
         destroy() {
             clearInterval(this.timer)
@@ -409,7 +409,7 @@
                     console.log("将搜索来源：", this.enableSearchComponents)
                     try {
                         for (let component of this.enableSearchComponents) {
-                            uCore.parse.search(uCore.components[component.name], this.input, component.limit, (results, status) => {
+                            uAnimeSearchCore.parse.search(uAnimeSearchCore.components[component.name], this.input, component.limit, (results, status) => {
                                 if (status) {
                                     let txt = status
                                     switch (status) {
@@ -477,7 +477,7 @@
                     message: info+'请求发送中...',
                     type: 'success'
                 });
-                uCore.proxyCommand(command, (data) => {
+                uAnimeSearchCore.proxyCommand(command, (data) => {
                     if ('update' === command) {
                         this.getCurrentVersion()
                     }
