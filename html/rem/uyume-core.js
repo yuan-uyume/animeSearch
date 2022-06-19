@@ -2,6 +2,7 @@ const uAnimeSearchCore = {
     name: "uAnimeSearchCore",
     version: "0.0.1",
     proxy: {
+        enable: true,
         host: "localhost",
         port: "12077"
     },
@@ -271,12 +272,11 @@ const uAnimeSearchCore = {
             }
         },
     },
-    init(jquery, fetch, proxy) {
+    init(jquery, proxy) {
         if (proxy) {
             this.proxy = proxy
         }
         this.$ = jquery
-        this.f = fetch
         this.log = (out, component, ...data) => {
             if (component && component.source) {
                 console.log(component.source + " => ", ...data)
@@ -308,16 +308,7 @@ const uAnimeSearchCore = {
 
         this.http = {
             get: (url, success, error) => {
-                if (this.f) {
-                    this.f(url, {
-                        method: 'get'
-                    }).then(response => {
-                        if (response.ok) {
-                            success(response.json())
-                        } else {
-                            error(response.statusText)
-                        }
-                    })
+                if (!this.proxy.enable) {
                 } else {
                     this.$.ajax({
                         url: url,
@@ -352,7 +343,7 @@ const uAnimeSearchCore = {
                 return component.protocol + "://" + component.source_url
             },
             getUrlHeader: (component) => {
-                return this.f ? this.kits.getUrl(component) : this.kits.getProxyUrl(component)
+                return !this.proxy.enable ? this.kits.getUrl(component) : this.kits.getProxyUrl(component)
             },
             getFirstUrl: (component, word) => {
                 return this.kits.replaceWord(this.kits.getUrlHeader(component) + component.search, word)

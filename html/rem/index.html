@@ -241,7 +241,7 @@
             this.loadRestaurants()
             this.loadSearchComponents()
             this.timer = setInterval(() => this.getCurrentVersion(true), 10000)
-            uAnimeSearchCore.init($, null)
+            uAnimeSearchCore.init($)
         },
         destroy() {
             clearInterval(this.timer)
