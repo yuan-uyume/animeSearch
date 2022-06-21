@@ -1,6 +1,6 @@
 const uAnimeSearchCore = {
     name: "uAnimeSearchCore",
-    version: "0.0.1",
+    version: "0.0.2",
     proxy: {
         enable: true,
         host: "localhost",
@@ -274,7 +274,7 @@ const uAnimeSearchCore = {
     },
     init(jquery, proxy) {
         if (proxy) {
-            this.proxy = proxy
+            this.proxy = Object.assign(this.proxy, proxy);
         }
         this.$ = jquery
         this.log = (out, component, ...data) => {
@@ -292,36 +292,20 @@ const uAnimeSearchCore = {
                 console.log("uyume- => ", ...data)
             }
         }
-        this.proxyCommand = (command, success, fail) => {
-            this.$.ajax({
-                url: "http://"+this.proxy.host+":"+this.proxy.port+"/ececute?type="+command,
-                type: 'get',
-                timeout: 10000,
-                success: (data) => {
-                    success(data)
-                },
-                error: (xhr,errorText,errorType) => {
-                    fail(xhr,errorText,errorType)
-                }
-            })
-        }
 
         this.http = {
             get: (url, success, error) => {
-                if (!this.proxy.enable) {
-                } else {
-                    this.$.ajax({
-                        url: url,
-                        type: 'get',
-                        timeout: 6000,
-                        success: (data) => {
-                            success(data)
-                        },
-                        error: (xhr,errorText,errorType) => {
-                            error(errorText)
-                        }
-                    })
-                }
+                this.$.ajax({
+                    url: url,
+                    type: 'get',
+                    timeout: 6000,
+                    success: (data) => {
+                        success(data)
+                    },
+                    error: (xhr,errorText,errorType) => {
+                        error(errorText)
+                    }
+                })
             }
         }
 
@@ -334,22 +318,22 @@ const uAnimeSearchCore = {
                 return result
             },
             getSite: () => {
-                return this.proxy.host + ":" + this.proxy.port
+                return  this.proxy.host + this.proxy.port ? ":" + this.proxy.port : ''
             },
             getProxyUrl: (component) => {
-                return component.protocol + "://" + this.kits.getSite() + component.proxy
+                return (this.proxy.path ? this.proxy.path : component.protocol + "://" + this.kits.getSite()) +  component.proxy
             },
             getUrl: (component) => {
-                return component.protocol + "://" + component.source_url
+                return component.source_url
             },
             getUrlHeader: (component) => {
-                return !this.proxy.enable ? this.kits.getUrl(component) : this.kits.getProxyUrl(component)
+                return !(this.proxy && this.proxy.enable) ? this.kits.getUrl(component) : this.kits.getProxyUrl(component)
             },
             getFirstUrl: (component, word) => {
-                return this.kits.replaceWord(this.kits.getUrlHeader(component) + component.search, word)
+                return this.kits.replaceWord(this.kits.getUrlHeader(component) + component.search , word)
             },
             getPageUrl: (component, word, page) => {
-                return this.kits.replacePage(this.kits.getUrlHeader(component) + component.page, word, page)
+                return this.kits.replacePage(this.kits.getUrlHeader(component) + component.page , word, page)
             },
             replaceWord: (str, word) => {
                 return str.replace('{word}', word)
