@@ -1,6 +1,6 @@
 const uAnimeSearchCore = {
     name: "uAnimeSearchCore",
-    version: "0.0.2",
+    version: "0.0.21",
     proxy: {
         enable: true,
         host: "localhost",
@@ -109,8 +109,8 @@ const uAnimeSearchCore = {
             protocol: "http",
             proxy: "/age",
             search: "search?query={word}&page=1",
-            source_url: "https://www.agemys.com",
-            source: "AGE动漫(www.agemys.com)",
+            source_url: "https://www.age.tv",
+            source: "AGE动漫(www.age.tv)",
             page: "search?query={word}&page={page}",
             pageSize: 24,
             getTotal: (html) => {

@@ -277,10 +277,10 @@
                 let oldSevenDay = new Date()
                 oldSevenDay.setDate(oldSevenDay.getDate() - 7)
                 this.restaurants = this.restaurants.filter((d) => {
-                    return d.lastTime.getDate() >= oldSevenDay.getDate()
-                })
-                console.log("保存搜索记录", this.restaurants.slice(0,100))
-                localStorage.setItem("restaurants", JSON.stringify(this.restaurants.slice(0,100)))
+                    return d.lastTime.getTime() >= oldSevenDay.getTime()
+                }).slice(0,100)
+                console.log("保存搜索记录", restaurant, this.restaurants)
+                localStorage.setItem("restaurants", JSON.stringify(this.restaurants))
             },
             loadRestaurants() {
                 let restaurants = localStorage.getItem("restaurants")
