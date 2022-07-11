@@ -442,9 +442,6 @@ const uAnimeSearchCore = {
             this.proxy = Object.assign(this.proxy, proxy);
         }
         console.log('代理开关：', this.proxy ? this.proxy.enable : this.proxy, '代理配置:', this.proxy, '请求头为', this.kits.getSite())
-
-
-
         console.log(this.name ,"已初始化， 当前版本为:", this.version)
     }
 }
