@@ -1,6 +1,6 @@
 const uAnimeSearchCore = {
     name: "uAnimeSearchCore",
-    version: "0.0.21",
+    version: "0.0.211",
     proxy: {
         enable: true,
         host: "localhost",
@@ -273,9 +273,6 @@ const uAnimeSearchCore = {
         },
     },
     init(jquery, proxy) {
-        if (proxy) {
-            this.proxy = Object.assign(this.proxy, proxy);
-        }
         this.$ = jquery
         this.log = (out, component, ...data) => {
             if (component && component.source) {
@@ -292,7 +289,6 @@ const uAnimeSearchCore = {
                 console.log("uyume- => ", ...data)
             }
         }
-
         this.http = {
             get: (url, success, error) => {
                 this.$.ajax({
@@ -308,7 +304,6 @@ const uAnimeSearchCore = {
                 })
             }
         }
-
         this.kits = {
             getInt: (num, limit) => {
                 result = parseInt(num / limit)
@@ -318,7 +313,7 @@ const uAnimeSearchCore = {
                 return result
             },
             getSite: () => {
-                return  this.proxy.host + this.proxy.port ? ":" + this.proxy.port : ''
+                return  this.proxy.host + (this.proxy.port ? ":" + this.proxy.port : '')
             },
             getProxyUrl: (component) => {
                 return (this.proxy.path ? this.proxy.path : component.protocol + "://" + this.kits.getSite()) +  component.proxy
@@ -443,6 +438,13 @@ const uAnimeSearchCore = {
                 })
             }
         }
+        if (proxy) {
+            this.proxy = Object.assign(this.proxy, proxy);
+        }
+        console.log('代理开关：', this.proxy ? this.proxy.enable : this.proxy, '代理配置:', this.proxy, '请求头为', this.kits.getSite())
+
+
+
         console.log(this.name ,"已初始化， 当前版本为:", this.version)
     }
 }
