@@ -1,6 +1,6 @@
 const uAnimeSearchCore = {
     name: "uAnimeSearchCore",
-    version: "0.0.211",
+    version: "0.0.3",
     proxy: {
         enable: true,
         host: "localhost",
@@ -109,8 +109,8 @@ const uAnimeSearchCore = {
             protocol: "http",
             proxy: "/age",
             search: "search?query={word}&page=1",
-            source_url: "https://www.age.tv",
-            source: "AGE动漫(www.age.tv)",
+            source_url: "https://www.agemys.com/",
+            source: "AGE动漫(www.agemys.com)",
             page: "search?query={word}&page={page}",
             pageSize: 24,
             getTotal: (html) => {
@@ -276,7 +276,7 @@ const uAnimeSearchCore = {
         this.$ = jquery
         this.log = (out, component, ...data) => {
             if (component && component.source) {
-                console.log(component.source + " => ", ...data)
+                console.log("uyume-core => " + component.source + " => ", ...data)
                 if (out) {
                     let con = this.$("#console").html() + component.source + " => "
                     for (let d of data) {
@@ -286,8 +286,21 @@ const uAnimeSearchCore = {
                     this.$("#console").html(con)
                 }
             } else {
-                console.log("uyume- => ", ...data)
+                console.log("uyume-core => ", ...data)
             }
+        }
+        this.proxyCommand = (command, success, fail) => {
+            this.$.ajax({
+                url: "http://" + this.kits.getSite() + "/ececute?type="+command,
+                type: 'get',
+                timeout: 10000,
+                success: (data) => {
+                    success(data)
+                },
+                error: (xhr,errorText,errorType) => {
+                    fail(xhr,errorText,errorType)
+                }
+            })
         }
         this.http = {
             get: (url, success, error) => {
@@ -441,7 +454,7 @@ const uAnimeSearchCore = {
         if (proxy) {
             this.proxy = Object.assign(this.proxy, proxy);
         }
-        console.log('代理开关：', this.proxy ? this.proxy.enable : this.proxy, '代理配置:', this.proxy, '请求头为', this.kits.getSite())
-        console.log(this.name ,"已初始化， 当前版本为:", this.version)
+        this.log(false,null,'代理开关：', this.proxy ? this.proxy.enable : this.proxy, '代理配置:', this.proxy, '请求头为', this.kits.getSite())
+        this.log(false,null, this.name ,"已初始化， 当前版本为:", this.version)
     }
 }

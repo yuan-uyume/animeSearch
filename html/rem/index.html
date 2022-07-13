@@ -3,6 +3,7 @@
     <title>搜索动漫 by uyume</title>
     <script src="/lib/jquery-3.6.0.min.js"></script>
     <script src="/lib/vue.js"></script>
+    <script src="/lib/md5.js"></script>
     <!-- 引入样式 -->
     <link rel="stylesheet" href="/lib/el/el-ui.css">
     <link rel="stylesheet" href="/rem/my.css">
@@ -16,9 +17,9 @@
 <div id="app">
     <el-drawer
             title="搜索源设置"
-            :visible.sync="drawer"
+            :visible.sync="isShowSearchSourceSetting"
             direction="rtl"
-            :before-close="handleClose">
+            :before-close="onSearchSourceSettingClose">
         <el-tooltip class="item" effect="dark" content="数量限制：该搜索源只搜索前N条，N为0时表示没有限制" placement="top-end">
             <el-button icon="el-icon-info" circle style="float: right; margin-right: 12px"></el-button>
         </el-tooltip>
@@ -27,9 +28,9 @@
                 :data="searchComponents"
                 tooltip-effect="dark"
                 style="width: 100%"
-                @selection-change="handleSelectionChange">
+                @selection-change="onSearchSourceSelectionChange">
             <el-table-column
-                    :selectable="isSelectable"
+                    :selectable="isSearchSourceSelectable"
                     type="selection"
                     width="55">
             </el-table-column>
@@ -48,20 +49,46 @@
             </el-table-column>
         </el-table>
     </el-drawer>
+    <el-dialog
+            title="这是收藏夹"
+            custom-class="collects"
+            :visible.sync="isShowCollects"
+            width="90%"
+            :before-close="onCollectsConfirm">
+        <div id="collects" v-if="collects != null && collects.length > 0">
+            <div class="collects-body">
+                <search-result v-for="(item, index) in showCollects" @collect="onCollectsChange" :result="item" :key="'collects-'+item.id+item.collect"></search-result>
+            </div>
+            <el-pagination
+                    class="collects-pagination"
+                    @current-change="onCollectPagesCurrentChange"
+                    :current-page.sync="collectPages.currentPage"
+                    :searchPages-size="collectPages.pageSize"
+                    layout="total, prev, pager, next, jumper"
+                    :total="collectPages.total">
+            </el-pagination>
+        </div>
+        <div v-else style="text-align: center;color: #999999;font-size: 24px;">
+            <el-empty description="无收藏"></el-empty>
+        </div>
+        <span slot="footer" class="dialog-footer">
+            <el-button type="primary" @click="onCollectsConfirm">确 定</el-button>
+        </span>
+    </el-dialog>
     <el-container >
         <el-header id="search" height="140x">
             <el-row style="height: 48px;margin-bottom: 4px">
                 <el-form ref="form" label-width="80px" style="height: 40px;margin-bottom: 8px" @submit.native.prevent>
                     <el-row style="height: 48px;">
                         <el-col :span="16"  style="height: 48px;min-width: 300px">
-                            <el-form-item label="搜索内容" name="input">
+                            <el-form-item label="搜索内容" name="searchValue">
                                 <el-autocomplete
-                                        class="inline-input"
+                                        class="inline-searchValue"
                                         style="min-width: 300px; width: 100%"
-                                        v-model="input"
+                                        v-model="searchValue"
                                         :fetch-suggestions="querySearch"
-                                        :placeholder="'uyume爱你φ(>ω<*)  version:' + version.version"
-                                        @keydown.enter.native="onSubmit"
+                                        :placeholder="'uyume爱你φ(>ω<*)  version:' + app.version"
+                                        @keydown.enter.native="onSearch"
                                         clearable
                                 ></el-autocomplete>
                             </el-form-item>
@@ -69,20 +96,20 @@
                         <el-col style="height: 48px;" :span="8">
                             <el-form-item>
                                 <div style="min-width: 338px">
-                                    <el-button type="primary" icon="el-icon-search" @click="onSubmit">搜索</el-button>
-                                    <el-button type="info" icon="el-icon-s-tools" @click="onSetting">搜索源</el-button>
-                                    <el-button icon="el-icon-magic-stick" @click="choose = !choose" round>更多</el-button>
+                                    <el-button type="primary" icon="el-icon-search" @click="onSearch">搜索</el-button>
+                                    <el-button type="info" icon="el-icon-s-tools" @click="onSettingSearchSources">搜索源</el-button>
+                                    <el-button icon="el-icon-magic-stick" @click="isShowMore = !isShowMore" round>更多</el-button>
                                 </div>
                             </el-form-item>
                         </el-col>
                     </el-row>
                 </el-form>
             </el-row>
-            <el-row v-show="choose">
+            <el-row v-show="isShowMore">
                 <el-row>
                     <el-form label-width="80px" style="float: left;height: 30px" :inline="true">
-                        <el-form-item label="来源筛选" name="input">
-                            <el-select multiple style="width: 400px" v-model="chooseValue" placeholder="请选择">
+                        <el-form-item label="来源筛选" name="searchValue">
+                            <el-select multiple style="width: 400px" v-model="searchSourceChooseValue" placeholder="请选择">
                                 <el-option
                                         v-for="item in enableSearchComponents"
                                         :key="item.index"
@@ -92,9 +119,9 @@
                                     <span style="float: right; color: #8492a6; font-size: 13px">{{ item.source.split('(')[1].substr(0, item.source.split('(')[1].length-1) }}</span>
                                 </el-option>
                             </el-select>
-                            <el-button style="margin-left: 6px" type="primary" icon="el-icon-star-off" @click="onChoose" plain>筛选</el-button>
-                            <el-button style="margin-left: 6px" type="success" icon="el-icon-upload" @click="update" plain>在线更新</el-button>
-                            <el-dropdown style="margin-left: 16px" @command="handleCommand">
+                            <el-button style="margin-left: 6px" type="primary" icon="el-icon-star-off" @click="onSearchResultChoose" plain>筛选</el-button>
+                            <el-button v-if="!app.onLine.enable" style="margin-left: 6px" type="success" icon="el-icon-upload" @click="update" plain>在线更新</el-button>
+                            <el-dropdown v-if="!app.onLine.enable" style="margin-left: 16px" @command="handleCommand">
                                 <span class="el-dropdown-link">
                                     反代管理<i class="el-icon-arrow-down el-icon--right"></i>
                                 </span>
@@ -110,7 +137,7 @@
                                     </el-tooltip>
                                     <el-tooltip class="item" effect="dark" content="杀死进程,网页会停止" placement="left">
                                         <el-dropdown-item command="kill,强行停止">
-                                                <span style="color: #F56C6C">强行停止</span>
+                                            <span style="color: #F56C6C">强行停止</span>
                                         </el-dropdown-item>
                                     </el-tooltip>
                                 </el-dropdown-menu>
@@ -118,25 +145,35 @@
                         </el-form-item>
                     </el-form>
                     <el-tooltip class="item" effect="dark" content="查看搜索详细信息" placement="bottom">
-                        <el-button style="float: right" @click="showConsole = !showConsole" type="info" icon="el-icon-view" circle></el-button>
+                        <el-button style="float: right" @click="isShowConsole = !isShowConsole" type="info" icon="el-icon-view" circle></el-button>
+                    </el-tooltip>
+                    <el-tooltip class="item" effect="dark" :content="liModelText" placement="bottom">
+                        <el-button style="float: right; margin-right: 6px" @click="openLiModel" type="primary" icon="el-icon-edit" circle disabled></el-button>
                     </el-tooltip>
                 </el-row>
                 <el-row>
-                    <div id="console" v-show="showConsole"></div>
+                    <div id="console" v-show="isShowConsole"></div>
                 </el-row>
+            </el-row>
+            <el-row class="more" style="padding-left: 10px;padding-top: 4px">
+                <el-col>
+                    <el-tooltip content="收藏夹" placement="bottom">
+                        <el-button type="warning" icon="el-icon-star-off" circle @click="isShowCollects = true;setPagesData(collectPages, collects)"></el-button>
+                    </el-tooltip>
+                </el-col>
             </el-row>
         </el-header>
         <el-main id="content">
             <div id="result-body">
                 <div id="results" v-if="results != null && results.length > 0">
-                    <search-result v-for="(item, index) in show_results" :result="item" :key="index"></search-result>
+                    <search-result v-for="(item, index) in showResults" @collect="onSearchResultCollect" :result="item" :key="'search-'+item.id+item.collect"></search-result>
                     <el-pagination
                             class="pagination"
-                            @current-change="handleCurrentChange"
-                            :current-page.sync="page.currentPage"
-                            :page-size="page.pageSize"
+                            @current-change="onSearchPagesCurrentChange"
+                            :current-page.sync="searchPages.currentPage"
+                            :searchPages-size="searchPages.pageSize"
                             layout="total, prev, pager, next, jumper"
-                            :total="page.total">
+                            :total="searchPages.total">
                     </el-pagination>
                 </div>
                 <div v-else style="text-align: center;color: #999999;font-size: 24px">
@@ -151,6 +188,11 @@
 <script>
     Vue.component('search-result', {
         props:['result'],
+        methods: {
+            onclick() {
+                this.$emit('collect', this.result)
+            }
+        },
         template: '<div class="result">\n' +
             '                <el-row :gutter="20" class="result-row">\n' +
             '                    <el-col :span="4" style="min-width: 140px;max-width: 160px">\n' +
@@ -167,6 +209,11 @@
             '                        <div class="source"><span>来自 {{result.source}}</span><span>共 <strong style="color: #de85a4;">{{result.total}}</strong> 集 => (；´д｀)ゞ集数不一定准确 </span></div>\n' +
             '                        <div class="info">{{result.info}}</div>\n' +
             '                    </el-col>\n' +
+            '                    <el-col class="result-collect" :span="2">\n' +
+            '                       <el-link  :underline="false" @click="onclick" title="收藏">\n' +
+            '                           <i :class="result.collect ? result.collect : \'el-icon-star-off\'"></i>\n' +
+            '                       </el-link>\n' +
+            '                    </el-col>\n' +
             '                </el-row>\n' +
             '            </div>'
     })
@@ -174,25 +221,63 @@
         el: '#app',
         data: function() {
             return {
-                version: {
-                    version: "未知"
+                app: {
+                    version: "未知",
+                    liModel: false,
+                    versionUrl: '/rem/version.json',
+                    onLine: {
+                        enable: false,
+                        proxy: {path: "/api/proxy?proxy="},
+                        versionUrl: '/anime-search/rem/version.json'
+                    },
+                    debug: {
+                        enable: false,
+                        data: [
+                            {
+                                "url": "https://www.agemys.com//detail/20220082",
+                                "image": "https://cdn.aqdstatic.com:966/age/20220082_small.jpg",
+                                "source": "AGE动漫(www.agemys.com)",
+                                "title": "间谍过家家",
+                                "info": "电视动画《间谍×过家家》改编自远藤达哉创作的同名漫画作品，由WIT STUDIO和CLOVER WORKS负责制作，于2022年播出。\n为了潜入名校，西国能力最强的间谍<黄昏>被下令组建家庭.但是，他的“女儿”居然是能够读取他人内心的超能力者！“妻子”是暗杀者？互相隐藏了真实身份的新家庭，面临考验与世界危机的痛快家庭喜剧就此展开！！",
+                                "total": "12",
+                                "id": "dddc91bb7079378a02714ff80561df77"
+                            },
+                            {
+                                "url": "https://www.agemys.com//detail/20220223",
+                                "image": "https://cdn.aqdstatic.com:966/age/20220223_small.jpg",
+                                "source": "AGE动漫(www.agemys.com)",
+                                "title": "间谍教室",
+                                "info": "陽炎パレス・共同生活のルール。\n一つ 七人で協力して生活すること。\n一つ 外出時は本気で遊ぶこと。\n一つ あらゆる手段でもって僕を倒すこと。\n――各国がスパイによる“影の戦争“を繰り広げる世界。\n任務成功率100%、しかし性格に難ありの凄腕スパイ・クラウスは、死亡率九割を超える『不可能任務』に挑む機関―灯―を創設する。\nしかし、選出されたメンバーは実践経験のない7人の少女たち。\n毒殺、トラップ、色仕掛け――任務達成のため、少女たちに残された唯一の手段は、\nクラウスに騙しあいで打ち勝つことだった!? \n世界最強のスパイによる、世界最高の騙しあい!\n\n\t\t\t",
+                                "total": "我不知道多少",
+                                "id": "0e6ad90e32f00f386dfee48bbed3be8b"
+                            }
+                        ]
+                    }
                 },
-                results: [],
-                show_results: [],
-                page_results: [],
-                page: {
-                  total: 0,
-                  pageSize: 10,
-                  currentPage: 1
+                searchValue: "",
+                searchSourceChooseValue: '',
+                searchPages: {
+                    total: 0,
+                    pageSize: 10,
+                    currentPage: 1
                 },
-                input: "",
-                drawer: false,
-                showConsole: false,
-                choose: false,
-                chooseValue: '',
-                activeNames: [],
+                collectPages: {
+                    total: 0,
+                    pageSize: 10,
+                    currentPage: 1
+                },
+                isShowSearchSourceSetting: false,
+                isShowConsole: false,
+                isShowCollects: false,
+                isShowMore: false,
                 searching: false,
                 searchIndex: 0,
+                versionTimer: null,
+                collects: [],
+                showCollects: [],
+                restaurants: [],
+                results: [],
+                showResults: [],
                 searchComponents: [
                     {
                         index: 0,
@@ -232,244 +317,39 @@
                 ],
                 enableSearchComponents : [],
                 disableSearchComponents: [3],
-                restaurants: [],
-                timer: null
             }
         },
         created() {
             this.getCurrentVersion()
             this.loadRestaurants()
             this.loadSearchComponents()
-            this.timer = setInterval(() => this.getCurrentVersion(true), 10000)
-            uAnimeSearchCore.init($)
+            this.loadCollects()
+            this.versionTimer = setInterval(() => this.getCurrentVersion(true), 10000)
+            if (this.app.onLine.enable) {
+                uAnimeSearchCore.init($, this.app.onLine.proxy)
+            } else {
+                uAnimeSearchCore.init($)
+            }
+            if (this.app.debug.enable) {
+                this.results = this.app.debug.data
+                this.setPagesData(this.searchPages,this.results, this.setObjsCollect)
+            }
         },
         destroy() {
-            clearInterval(this.timer)
+            clearInterval(this.versionTimer)
         },
         computed: {
             inputNotNull() {
-                return this.input != null && this.input.length > 0
+                return this.searchValue != null && this.searchValue.length > 0
+            },
+            liModelText() {
+                return this.liModel ? "退出里模式" : '进入里模式'
             }
         },
         methods: {
-            saveRestaurants() {
-                let restaurant = {
-                    value: this.input,
-                    lastTime: new Date()
-                }
-                let flag = true
-                for (let d of this.restaurants) {
-                    if (d.value === restaurant.value) {
-                        d.time ++
-                        d.lastTime = restaurant.lastTime
-                        flag = false
-                    }
-                }
-                if (flag) {
-                    restaurant.time = 1
-                    this.restaurants.push(restaurant)
-                }
-
-                this.restaurants.sort((a,b) => {
-                    return b.time === a.time ? b.lastTime.getDate() - a.lastTime.getTime() : b.time - a.time
-                })
-
-                let oldSevenDay = new Date()
-                oldSevenDay.setDate(oldSevenDay.getDate() - 7)
-                this.restaurants = this.restaurants.filter((d) => {
-                    return d.lastTime.getTime() >= oldSevenDay.getTime()
-                }).slice(0,100)
-                console.log("保存搜索记录", restaurant, this.restaurants)
-                localStorage.setItem("restaurants", JSON.stringify(this.restaurants))
-            },
-            loadRestaurants() {
-                let restaurants = localStorage.getItem("restaurants")
-                if (restaurants != null) {
-                    restaurants = JSON.parse(restaurants)
-                    for (let d of restaurants) {
-                        d.lastTime = new Date(d.lastTime)
-                    }
-                    this.restaurants = restaurants
-                }
-            },
-            loadSearchComponents() {
-                let localSearchComponents = localStorage.getItem("searchComponents")
-                if (localSearchComponents != null) {
-                    localSearchComponents = JSON.parse(localSearchComponents)
-                    for (let component of localSearchComponents) {
-                        this.searchComponents[component.index].limit = component.limit
-                        if (this.isEnable(component, component.index)) {
-                            this.enableSearchComponents.push(this.searchComponents[component.index])
-                        }
-                    }
-                } else {
-                    for (let component of this.searchComponents) {
-                        if (this.isEnable(component, component.index)) {
-                            this.enableSearchComponents.push(component)
-                        }
-                    }
-                }
-            },
-            querySearch(queryString, callback) {
-                let restaurants = this.restaurants;
-                let results = queryString ? restaurants.filter(this.createFilter(queryString)) : restaurants;
-                // 调用 callback 返回建议列表的数据
-                callback(results.slice(0,7));
-            },
-            createFilter(queryString) {
-                return (restaurant) => {
-                    return (restaurant.value.toLowerCase().indexOf(queryString.toLowerCase()) === 0);
-                };
-            },
-            isSelectable(row, index) {
-                return !this.disableSearchComponents.includes(index)
-            },
-            isEnable(row, index) {
-                return !this.disableSearchComponents.includes(index) && row.enable
-            },
-            getCurrentVersion(flag) {
-                console.log("获取当前版本中...")
-                $.ajax({
-                    url: "/rem/version.json",
-                    type: 'get',
-                    timeout: 10000,
-                    success: (data) => {
-                        if (!flag) {
-                            this.$message({
-                                message: '获取当前本地版本成功',
-                                type: 'success'
-                            });
-                        }
-                        this.version = data
-                    },
-                    error: (xhr,errorText,errorType) => {
-                        this.$message({
-                            message: '获取当前本地版本失败',
-                            type: 'warning'
-                        });
-                    }
-                })
-            },
-            setPageResults(results) {
-                let temp = []
-                for (let idx in results) {
-                    temp.push(results[idx])
-                    if (idx % this.page.pageSize === this.page.pageSize - 1) {
-                        // 最后一个
-                        if (temp.length > 0) {
-                            this.page_results.push(temp)
-                        }
-                        console.log("上一页数据已补全...生成新页")
-                        temp = []
-                    }
-                }
-                this.page_results.push(temp)
-            },
-            handleClose(done) {
-                done()
-                for (let comp of this.searchComponents) {
-                    comp.enable = this.enableSearchComponents.includes(comp);
-                }
-                localStorage.setItem("searchComponents", JSON.stringify(this.searchComponents))
-                this.$message({
-                    message: '设置保存成功',
-                    type: 'success'
-                });
-            },
-            handleSelectionChange(val) {
-                this.enableSearchComponents = val
-                console.log("目前已启用的搜素源：", this.enableSearchComponents)
-            },
-            handleCurrentChange(val) {
-                this.show_results = this.page_results[val - 1]
-                console.log("当前显示", this.show_results)
-            },
             handleCommand(command) {
                 let info = command.split(",")
                 this.execute(info[0], info[1])
-            },
-            onFinish() {
-                if (++ this.searchIndex >= this.enableSearchComponents.length) {
-                    this.searching = false
-                    this.searchIndex = 0
-                    this.page.total = this.results.length
-                    this.setPageResults(this.results)
-                    console.log("分页数据", this.page_results)
-                }
-            },
-            onSubmit() {
-                if (this.inputNotNull) {
-                    console.log("搜索中...")
-                    this.show_results = []
-                    this.page_results = []
-                    this.results = []
-                    this.searching = true
-                    $("#console").text('')
-                    this.saveRestaurants()
-                    console.log("将搜索来源：", this.enableSearchComponents)
-                    try {
-                        for (let component of this.enableSearchComponents) {
-                            uAnimeSearchCore.parse.search(uAnimeSearchCore.components[component.name], this.input, component.limit, (results, status) => {
-                                if (status) {
-                                    let txt = status
-                                    switch (status) {
-                                        case 'timeout': txt = '超时';break;
-                                        case 'no total': txt = '无结果';break;
-                                    }
-                                    this.$message({
-                                        message: component.source+'获取信息出错('+txt+')...看结果详情了解更多',
-                                        type: 'warning'
-                                    });
-                                } else {
-                                    // 将结果放入
-                                    this.results.push(...results)
-                                    let page = this.show_results
-                                    if (page.length < this.page.pageSize) {
-                                        let temp = []
-                                        if (page.length > 0) {
-                                            temp = results.slice(0, this.page.pageSize - page.length)
-                                        } else {
-                                            temp = results.slice(0, this.page.pageSize)
-                                        }
-                                        this.show_results.push(...temp)
-                                    }
-                                }
-                                this.onFinish()
-                            })
-                        }
-                    } catch (e) {
-                        console.log("搜索过程中发生错误：", e)
-                        this.searching = false
-                        this.searchIndex = 0
-                    }
-                }
-            },
-            onSetting() {
-                console.log("设置搜索源...")
-                this.drawer = true
-                this.$nextTick(() => {
-                    for (let select of this.enableSearchComponents) {
-                        this.$refs.searchComponentsSetting.toggleRowSelection(select, true)
-                    }
-                })
-            },
-            onChoose() {
-                console.log("筛选来源：", this.chooseValue)
-                let results = []
-                if (this.chooseValue == null || this.chooseValue.length === 0) {
-                    results = this.results
-                } else {
-                    for (let r of this.results) {
-                        if (this.chooseValue.includes(r.source)) {
-                            results.push(r)
-                        }
-                    }
-                }
-                this.page.total = results.length
-                this.page.currentPage = 1
-                this.page_results = []
-                this.setPageResults(results)
-                this.show_results = this.page_results[0]
             },
             execute(command, info) {
                 console.log(command, info)
@@ -494,12 +374,12 @@
                     type: 'success'
                 });
                 $.ajax({
-                    url: this.version.update.baseUrl + "html/rem/version.json",
+                    url: this.app.update.baseUrl + "html/rem/version.json",
                     type: 'get',
                     timeout: 10000,
                     success: (data) => {
                         data = JSON.parse(data)
-                        if (data.version > this.version.version) {
+                        if (data.version > this.app.version) {
                             this.execute("update", "版本更新至" + data.version)
                         } else {
                             this.$message({
@@ -515,7 +395,406 @@
                         });
                     }
                 })
-            }
+            },
+            includes(arr, key, obj) {
+                if (arr && arr.length > 0) {
+                    let flag = false
+                    for(let d of arr) {
+                        if (d[key] == obj[key]) {
+                            flag = true
+                            break;
+                        }
+                    }
+                    return flag
+                } else {
+                    return false
+                }
+            },
+            indexOf(arr, key, obj) {
+                if (arr && arr.length > 0) {
+                    let flag = false
+                    let idx = -1
+                    for(let d of arr) {
+                        idx ++
+                        if (d[key] == obj[key]) {
+                            flag = true
+                            break;
+                        }
+                    }
+                    return flag ? idx : -1
+                } else {
+                    return -1
+                }
+            },
+            remove(arr, key, obj) {
+                let index = this.indexOf(arr,key,obj)
+                if (index > -1) {
+                    arr.splice(index, 1)
+                }
+            },
+            replace(arr, key, obj) {
+                let index = this.indexOf(arr,key,obj)
+                if (index > -1) {
+                    arr.splice(index, 1, obj)
+                }
+            },
+            saveRestaurants() {
+                let restaurant = {
+                    value: this.searchValue,
+                    lastTime: new Date()
+                }
+                let flag = true
+                for (let d of this.restaurants) {
+                    if (d.value === restaurant.value) {
+                        d.time ++
+                        d.lastTime = restaurant.lastTime
+                        flag = false
+                    }
+                }
+                console.log("记录中存在搜索词 = ", !flag, restaurant)
+                if (flag) {
+                    restaurant.time = 1
+                    this.restaurants.push(restaurant)
+                }
+
+                this.restaurants.sort((a,b) => {
+                    return b.time === a.time ? b.lastTime.getDate() - a.lastTime.getTime() : b.time - a.time
+                })
+
+                let oldSevenDay = new Date()
+                oldSevenDay.setDate(oldSevenDay.getDate() - 7)
+                console.log("清除",oldSevenDay,"之前的搜索词")
+                this.restaurants = this.restaurants.filter((d) => {
+                    return d.lastTime.getTime() >= oldSevenDay.getTime()
+                }).slice(0,100)
+                console.log("保存搜索记录", restaurant, this.restaurants)
+                localStorage.setItem("restaurants", JSON.stringify(this.restaurants))
+            },
+            saveCollects() {
+                localStorage.setItem("collects", JSON.stringify(this.collects))
+                this.$message({
+                    message: '收藏数据保存！',
+                    type: 'success'
+                });
+            },
+            loadRestaurants() {
+                let restaurants = localStorage.getItem("restaurants")
+                if (restaurants != null) {
+                    restaurants = JSON.parse(restaurants)
+                    for (let d of restaurants) {
+                        d.lastTime = new Date(d.lastTime)
+                    }
+                    this.restaurants = restaurants
+                }
+                console.log('加载搜索记录...', this.restaurants)
+            },
+            loadSearchComponents() {
+                let localSearchComponents = localStorage.getItem("searchComponents")
+                if (localSearchComponents != null) {
+                    localSearchComponents = JSON.parse(localSearchComponents)
+                    for (let component of localSearchComponents) {
+                        this.searchComponents[component.index].limit = component.limit
+                        if (this.isSearchSourceEnable(component, component.index)) {
+                            this.enableSearchComponents.push(this.searchComponents[component.index])
+                        }
+                    }
+                } else {
+                    for (let component of this.searchComponents) {
+                        if (this.isSearchSourceEnable(component, component.index)) {
+                            this.enableSearchComponents.push(component)
+                        }
+                    }
+                }
+                console.log('加载搜索组件...', this.enableSearchComponents)
+            },
+            loadCollects() {
+                let d = localStorage.getItem("collects")
+                if (d && d.length > 0) {
+                    d = JSON.parse(d)
+                    this.collects = d
+                }
+                console.log("加载收藏夹...", this.collects)
+            },
+            // 是否选中
+            isSearchSourceSelectable(row, index) {
+                return !this.disableSearchComponents.includes(index)
+            },
+            // 是否允许
+            isSearchSourceEnable(row, index) {
+                return !this.disableSearchComponents.includes(index) && row.enable
+            },
+            // 获取当前版本
+            getCurrentVersion(flag) {
+                console.log("获取当前版本中...")
+                $.ajax({
+                    url: this.app.onLine.enable ? this.app.onLine.versionUrl : this.app.versionUrl,
+                    type: 'get',
+                    timeout: 10000,
+                    success: (data) => {
+                        if (!flag) {
+                            this.$message({
+                                message: '获取当前应用版本成功',
+                                type: 'success'
+                            });
+                        }
+                        this.app.version = data.version
+                        this.app.update = data.update
+                        console.log("当前版本...", this.app)
+                    },
+                    error: (xhr,errorText,errorType) => {
+                        this.$message({
+                            message: '获取当前应用版本失败',
+                            type: 'warning'
+                        });
+                    }
+                })
+            },
+            setPagesData(pages, data, pageCallback) {
+                if (data == null) {
+                    console.log("设置分页无数据，出错...")
+                    return
+                }
+                let defaultPages = {
+                    currentPage: 1,
+                    pageSize: 10,
+                    total: data.length,
+                    data:[]
+                }
+                pages = Object.assign(pages, defaultPages)
+                console.log("设置分页数据...",pages, data)
+                let temp = []
+                for (let idx in data) {
+                    temp.push(data[idx])
+                    if (idx % pages.pageSize === pages.pageSize - 1) {
+                        // 最后一个
+                        if (temp.length > 0) {
+                            if (pageCallback) {
+                                pageCallback(temp)
+                            }
+                            pages.data.push(temp)
+                        }
+                        temp = []
+                        if (idx < data.length) {
+                            console.log("上一页数据已补全...生成新页")
+                        }
+                    }
+                }
+                if (temp && temp.length > 0) {
+                    if (pageCallback) {
+                        pageCallback(temp)
+                    }
+                    pages.data.push(temp)
+                }
+                console.log("生成页码数据...", pages)
+                if (pages === this.searchPages) {
+                    this.showResults = pages.data[0]
+                } else if (pages === this.collectPages) {
+                    this.showCollects = pages.data[0]
+                }
+            },
+            setObjsMd5(results) {
+                for (let d of results) {
+                    d.id = md5(JSON.stringify(d))
+                }
+            },
+            setObjsCollect(pages) {
+                for (let i in pages) {
+                    if (!pages[i].id) {
+                        pages[i].id = md5(JSON.stringify(pages[i]))
+                    }
+                    let idx = this.indexOf(this.collects, 'id', pages[i])
+                    if (idx > -1) {
+                        pages.splice(i, 1, this.collects[idx])
+                    }
+                }
+                console.log("生成收藏数据...", pages)
+            },
+            // 收藏
+            onSearchResultCollect(result) {
+                try {
+                    let collectEnable = this.includes(this.collects,'id',result)
+                    if (collectEnable) {
+                        this.remove(this.collects, 'id', result)
+                    } else {
+                        this.collects.push(result)
+                    }
+                    result.collect = !collectEnable ? 'el-icon-star-on' : 'el-icon-star-off'
+                } catch (e) {
+                    let collectEnable = this.includes(this.collects,id,result)
+                    result.collect = collectEnable ? 'el-icon-star-on' : 'el-icon-star-off'
+                }
+                this.saveCollects()
+                console.log('进行收藏...', result, '收藏夹目前：', this.collects)
+                // this.setObjsCollect(this.showResults)
+            },
+            onCollectsChange(collect) {
+                console.log('改变收藏状态...', collect)
+                collect.collect = collect.collect === 'el-icon-star-on' ? 'el-icon-star-off' : 'el-icon-star-on'
+                this.replace(this.showResults, 'id', collect)
+            },
+            onCollectsConfirm() {
+                this.isShowCollects = false
+                this.collects = this.collects.filter(d => {
+                    return d.collect === 'el-icon-star-on'
+                })
+                this.saveCollects()
+                this.setObjsCollect(this.showResults)
+            },
+            onCollectPagesCurrentChange(val) {
+                this.showCollects = this.collectPages.data[val - 1]
+                console.log("当前显示", this.showCollects)
+            },
+            // 搜索结果
+            onSearchResultChoose() {
+                console.log("筛选来源：", this.searchSourceChooseValue)
+                let results = []
+                if (this.searchSourceChooseValue == null || this.searchSourceChooseValue.length === 0) {
+                    results = this.results
+                } else {
+                    for (let r of this.results) {
+                        if (this.searchSourceChooseValue.includes(r.source)) {
+                            results.push(r)
+                        }
+                    }
+                }
+                this.setPagesData(this.searchPages, results, this.setObjsCollect)
+            },
+            onSearchPagesCurrentChange(val) {
+                this.showResults = this.searchPages.data[val - 1]
+                console.log("当前显示", this.showResults)
+            },
+            // 搜索源
+            onSearchSourceSettingClose(done) {
+                done()
+                for (let comp of this.searchComponents) {
+                    comp.enable = this.enableSearchComponents.includes(comp);
+                }
+                localStorage.setItem("searchComponents", JSON.stringify(this.searchComponents))
+                this.$message({
+                    message: '设置保存成功',
+                    type: 'success'
+                });
+            },
+            onSettingSearchSources() {
+                console.log("设置搜索源...")
+                this.isShowSearchSourceSetting = true
+                this.$nextTick(() => {
+                    for (let select of this.enableSearchComponents) {
+                        this.$refs.searchComponentsSetting.toggleRowSelection(select, true)
+                    }
+                })
+            },
+            onSearchSourceSelectionChange(val) {
+                this.enableSearchComponents = val
+                console.log("目前已启用的搜素源：", this.enableSearchComponents)
+            },
+            // 搜索
+            onSearchFinished() {
+                if (++ this.searchIndex >= this.enableSearchComponents.length) {
+                    this.searching = false
+                    this.searchIndex = 0
+                    this.setPagesData(this.searchPages,this.results,this.setObjsCollect)
+                    console.log("分页数据", this.searchPages.data)
+                }
+            },
+            onSearch() {
+                if (this.inputNotNull) {
+                    console.log("搜索中...")
+                    this.showResults = []
+                    this.searchPages.data = []
+                    this.results = []
+                    this.searching = true
+                    $("#console").text('')
+                    this.saveRestaurants()
+                    console.log("将搜索来源：", this.enableSearchComponents)
+                    try {
+                        for (let component of this.enableSearchComponents) {
+                            uAnimeSearchCore.parse.search(uAnimeSearchCore.components[component.name], this.searchValue, component.limit, (results, status) => {
+                                if (status) {
+                                    let txt = status
+                                    switch (status) {
+                                        case 'timeout': txt = '超时';break;
+                                        case 'no total': txt = '无结果';break;
+                                    }
+                                    this.$message({
+                                        message: component.source+'获取信息出错('+txt+')...看结果详情了解更多',
+                                        type: 'warning'
+                                    });
+                                } else {
+                                    // 将结果放入
+                                    this.setObjsMd5(results)
+                                    this.results.push(...results)
+                                    let searchPages = this.showResults
+                                    if (searchPages.length < this.searchPages.pageSize) {
+                                        let temp = []
+                                        if (searchPages.length > 0) {
+                                            temp = results.slice(0, this.searchPages.pageSize - searchPages.length)
+                                        } else {
+                                            temp = results.slice(0, this.searchPages.pageSize)
+                                        }
+                                        this.showResults.push(...temp)
+                                    }
+                                }
+                                this.onSearchFinished()
+                            })
+                        }
+                    } catch (e) {
+                        console.log("搜索过程中发生错误：", e)
+                        this.searching = false
+                        this.searchIndex = 0
+                    }
+                }
+            },
+            // 里模式
+            openLiModel() {
+                if (!this.liModel) {
+                    this.$prompt('请输入里模式代码', '提示', {
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                    }).then(({ value }) => {
+                        if (value === '114514') {
+                            this.changeModel(true)
+                            this.$message({
+                                type: 'success',
+                                message: '你已成功进入里模式'
+                            });
+                        } else {
+                            this.$message({
+                                type: 'warning',
+                                message: '里模式代码错误'
+                            });
+                        }
+
+                    }).catch(() => {
+                        this.$message({
+                            type: 'info',
+                            message: '取消输入'
+                        });
+                    });
+                } else {
+                    this.changeModel(false)
+                }
+            },
+            changeModel(isLiModel) {
+                this.liModel = isLiModel
+                if (isLiModel) {
+
+                } else {
+
+                }
+            },
+            // 搜索建议
+            querySearch(queryString, callback) {
+                let restaurants = this.restaurants;
+                let results = queryString ? restaurants.filter(this.createFilter(queryString)) : restaurants;
+                // 调用 callback 返回建议列表的数据
+                callback(results.slice(0,7));
+            },
+            createFilter(queryString) {
+                return (restaurant) => {
+                    return (restaurant.value.toLowerCase().indexOf(queryString.toLowerCase()) === 0);
+                };
+            },
         }
     })
 

@@ -1,3 +1,24 @@
+.result-collect {
+    min-width: 60px;
+    padding: 0 10px
+}
+
+.result-collect i {
+    font-size: 40px
+}
+
+.result-collect a:hover i{
+    color: #ff9ccd;
+}
+
+.result-collect .el-icon-star-off {
+    color: #f7df88;
+}
+
+.result-collect .el-icon-star-on {
+    color: #ff9ccd;
+}
+
 .result-row:hover{
     background-color: #cde6ff;
 }
@@ -98,4 +119,42 @@
     background-color: #FFF;
     width: 100vw;
     padding: 8px 12px;
+}
+
+.collects-pagination {
+    /*position: absolute;*/
+    /*bottom: 0;*/
+    background-color: #FFF;
+    padding: 8px 12px;
+    /*width: calc(100% - 64px);*/
+}
+
+#collects .collects-body {
+    height: calc(100% - 44px);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.collects {
+    margin-top: 10vh!important;
+    height: 84%;
+    overflow: hidden;
+}
+
+.collects .el-dialog__footer {
+    position: absolute;
+    width: 100%;
+    bottom: 0;
+}
+
+.collects .el-dialog__body {
+    position: absolute;
+    top: 54px;
+    bottom: 70px;
+    width: calc(100% - 40px);
+}
+
+#collects {
+    height: 100%;
+    overflow: hidden;
 }
