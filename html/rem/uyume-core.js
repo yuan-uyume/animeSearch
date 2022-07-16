@@ -1,6 +1,6 @@
 const uAnimeSearchCore = {
     name: "uAnimeSearchCore",
-    version: "0.0.3",
+    version: "0.0.31",
     proxy: {
         enable: true,
         host: "localhost",
@@ -15,6 +15,12 @@ const uAnimeSearchCore = {
             source: "樱花动漫(www.yinhuadm.com)",
             page: "/vch{word}/page/{page}.html",
             pageSize: 10,
+            updateTotal: (html) => {
+                let doms = uAnimeSearchCore.$(html).find('.alex').children()
+                let txt = doms[5].innerText.split('，')
+                let count = uAnimeSearchCore.kits.getIntForString(txt[0])
+                return [count, txt]
+            },
             getTotal: (html) => {
                 return uAnimeSearchCore.$(html).children(".tame").find("em").html()
             },
@@ -58,6 +64,11 @@ const uAnimeSearchCore = {
             source: "MX动漫(www.mxdm.cc)",
             page: "/search/{word}----------{page}---.html",
             pageSize: 10,
+            updateTotal: (html) => {
+                let pv = uAnimeSearchCore.$(html).find(".module-blocklist")[0]
+                let count = uAnimeSearchCore.$(pv).children().children().length
+                return [count, '我也不知道多少集']
+            },
             getTotal: (html) => {
                 let total = uAnimeSearchCore.$(html)[78] ? uAnimeSearchCore.$(html)[78].innerText :  uAnimeSearchCore.$(html)[69].innerText
                 let reg = /(\d+)/g
@@ -113,6 +124,22 @@ const uAnimeSearchCore = {
             source: "AGE动漫(www.agemys.com)",
             page: "search?query={word}&page={page}",
             pageSize: 24,
+            updateTotal: (html) => {
+                let pvList = uAnimeSearchCore.$(html).find('#main0').children().children()
+                let count = 0;
+                let txt = ''
+                for (let pv of pvList) {
+                    for (let item of uAnimeSearchCore.$(pv).children()) {
+                        let t = uAnimeSearchCore.$(item).children()[0].innerText
+                        let c = uAnimeSearchCore.kits.getIntForString(t)
+                        if (c > count) {
+                            count = c
+                            txt = t
+                        }
+                    }
+                }
+                return [count, txt]
+            },
             getTotal: (html) => {
                 let total = uAnimeSearchCore.$(html).find("#result_count").text()
                 let reg = /(\d+)/g
@@ -169,6 +196,7 @@ const uAnimeSearchCore = {
             source: "风车动漫(www.dm530p.com)",
             page: "s_all?kw={word}&pagesize=24&pageindex={page}",
             pageSize: 24,
+            updateTotal: (html) => {},
             getTotal: (html) => {
                 let total = uAnimeSearchCore.$(html).find("#gohome").find("h1").text()
                 let reg = /(\d+)/g
@@ -224,6 +252,22 @@ const uAnimeSearchCore = {
             source: "zzzFun(www.zzzfun.com)",
             page: "/vod_search_page_{page}_wd_{word}.html",
             pageSize: 10,
+            updateTotal: (html) => {
+                let pvList = uAnimeSearchCore.$(html).find('.episode-wrap').children()
+                let count = 0;
+                let txt = ''
+                for (let pv of pvList) {
+                    for (let item of uAnimeSearchCore.$(pv).children()) {
+                        let t = uAnimeSearchCore.$(item).children()[0].innerText
+                        let c = uAnimeSearchCore.kits.getIntForString(t)
+                        if (c > count) {
+                            count = c
+                            txt = t
+                        }
+                    }
+                }
+                return [count, txt]
+            },
             getTotal: (html) => {
                 let total = uAnimeSearchCore.$(html).find("script")[0].innerText
                 let reg = /(\d+)/g
@@ -318,6 +362,24 @@ const uAnimeSearchCore = {
             }
         }
         this.kits = {
+            sourceMap: {},
+            getSourceMap: () => {
+                if (Object.keys(this.kits.sourceMap).length <= 0) {
+                    let map = {}
+                    for (let key in this.components) {
+                        map[this.components[key].source] = key
+                    }
+                    this.kits.sourceMap = map
+                }
+                return this.kits.sourceMap
+            },
+            getComponent: (source) => {
+                return this.components[this.kits.getSourceMap()[source]]
+            },
+            getIntForString: (str) => {
+                let r = str.match(/(\d)+/g)
+                return r && r.length > 0 ? parseInt(r[0]) : 0
+            },
             getInt: (num, limit) => {
                 result = parseInt(num / limit)
                 if (num % limit > 0) {
@@ -351,6 +413,30 @@ const uAnimeSearchCore = {
             }
         }
         this.parse = {
+            updateCollect: (collect, success, fail) => {
+                let cop = this.kits.getComponent(collect.source)
+                let path = collect.url.match(new RegExp(this.kits.getUrl(cop) + '(.*)'))[1]
+                let url = this.kits.getUrlHeader(cop) + path
+                // if (cop === this.components.age) {
+                //     console.log(path, url)
+                // }
+                this.http.get(url, (data) => {
+                    this.log(true, cop, "开始更新收藏信息", url , collect)
+                    let up = cop.updateTotal(data)
+                    collect.total = up[0] ? up[0] : collect.total
+                    success(collect)
+                }, () => {
+                    url = this.kits.getUrlHeader(cop) + path.substr(1)
+                    this.http.get(url, (data) => {
+                        this.log(true, cop, "开始更新收藏信息", url , collect)
+                        let up = cop.updateTotal(data)
+                        collect.total = up[0] ? up[0] : collect.total
+                        success(collect)
+                    }, (err) => {
+                        fail(err)
+                    })
+                })
+            },
             getPages: (total, pageSize, limit) => {
                 total = parseInt(total)
                 pageSize = parseInt(pageSize)
@@ -425,9 +511,9 @@ const uAnimeSearchCore = {
                 }
 
                 if (page >= end || page >= total) {
-                    callback(all_results)
                     this.log(false, component, "搜索完毕，返回数据..", all_results)
                     this.log(true, component, "搜索成功..共", all_results.length, "条结果")
+                    callback(all_results)
                 } else {
                     this.parse.realSearch(component, word, page, total, end, endSize, all_results, callback)
                 }
@@ -449,6 +535,19 @@ const uAnimeSearchCore = {
                     this.log(true, component, "检测到请求出错("+e+")，返回数据..")
                     callback(all_results, e)
                 })
+            }
+        }
+        this.store = {
+            key: {
+                restaurants: 'restaurants',
+                collects: 'collects',
+                searchComponents: 'searchComponents',
+            },
+            get: (key) => {
+                return JSON.parse(localStorage.getItem(key))
+            },
+            set: (key, obj) => {
+                return localStorage.setItem(key, JSON.stringify(obj))
             }
         }
         if (proxy) {

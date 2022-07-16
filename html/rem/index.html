@@ -55,6 +55,7 @@
             :visible.sync="isShowCollects"
             width="90%"
             :before-close="onCollectsConfirm">
+        <span><el-button type="primary" @click="onUpdateCollects">更新收藏数据</el-button></span>
         <div id="collects" v-if="collects != null && collects.length > 0">
             <div class="collects-body">
                 <search-result v-for="(item, index) in showCollects" @collect="onCollectsChange" :result="item" :key="'collects-'+item.id+item.collect"></search-result>
@@ -278,6 +279,7 @@
                 restaurants: [],
                 results: [],
                 showResults: [],
+                copyKeys: ['url', 'image', 'source', 'title', 'info'],
                 searchComponents: [
                     {
                         index: 0,
@@ -320,16 +322,16 @@
             }
         },
         created() {
-            this.getCurrentVersion()
-            this.loadRestaurants()
-            this.loadSearchComponents()
-            this.loadCollects()
-            this.versionTimer = setInterval(() => this.getCurrentVersion(true), 10000)
             if (this.app.onLine.enable) {
                 uAnimeSearchCore.init($, this.app.onLine.proxy)
             } else {
                 uAnimeSearchCore.init($)
             }
+            this.getCurrentVersion()
+            this.loadRestaurants()
+            this.loadSearchComponents()
+            this.loadCollects()
+            this.versionTimer = setInterval(() => this.getCurrentVersion(true), 10000)
             if (this.app.debug.enable) {
                 this.results = this.app.debug.data
                 this.setPagesData(this.searchPages,this.results, this.setObjsCollect)
@@ -361,6 +363,10 @@
                     if ('update' === command) {
                         this.getCurrentVersion()
                     }
+                    this.$message({
+                        message: info+'请求发送成功！',
+                        type: 'success'
+                    });
                 }, () => {
                     this.$message({
                         message: info+'请求发送失败...',
@@ -416,7 +422,7 @@
                     let idx = -1
                     for(let d of arr) {
                         idx ++
-                        if (d[key] == obj[key]) {
+                        if (d[key] === obj[key]) {
                             flag = true
                             break;
                         }
@@ -437,6 +443,18 @@
                 if (index > -1) {
                     arr.splice(index, 1, obj)
                 }
+            },
+            copyObj(obj, ...key) {
+                let r = {}
+                if (key.length > 0) {
+                    for (let o of key) {
+                        r[o] = obj[o]
+                    }
+                } else {
+                    Object.assign(r, obj)
+                }
+                console.debug("copy", obj, "to", r)
+                return r
             },
             saveRestaurants() {
                 let restaurant = {
@@ -468,19 +486,18 @@
                     return d.lastTime.getTime() >= oldSevenDay.getTime()
                 }).slice(0,100)
                 console.log("保存搜索记录", restaurant, this.restaurants)
-                localStorage.setItem("restaurants", JSON.stringify(this.restaurants))
+                uAnimeSearchCore.store.set(uAnimeSearchCore.store.key.restaurants, this.restaurants)
             },
             saveCollects() {
-                localStorage.setItem("collects", JSON.stringify(this.collects))
+                uAnimeSearchCore.store.set(uAnimeSearchCore.store.key.collects, this.collects)
                 this.$message({
                     message: '收藏数据保存！',
                     type: 'success'
                 });
             },
             loadRestaurants() {
-                let restaurants = localStorage.getItem("restaurants")
+                let restaurants = uAnimeSearchCore.store.get(uAnimeSearchCore.store.key.restaurants)
                 if (restaurants != null) {
-                    restaurants = JSON.parse(restaurants)
                     for (let d of restaurants) {
                         d.lastTime = new Date(d.lastTime)
                     }
@@ -489,9 +506,8 @@
                 console.log('加载搜索记录...', this.restaurants)
             },
             loadSearchComponents() {
-                let localSearchComponents = localStorage.getItem("searchComponents")
+                let localSearchComponents = uAnimeSearchCore.store.get(uAnimeSearchCore.store.key.searchComponents)
                 if (localSearchComponents != null) {
-                    localSearchComponents = JSON.parse(localSearchComponents)
                     for (let component of localSearchComponents) {
                         this.searchComponents[component.index].limit = component.limit
                         if (this.isSearchSourceEnable(component, component.index)) {
@@ -508,9 +524,8 @@
                 console.log('加载搜索组件...', this.enableSearchComponents)
             },
             loadCollects() {
-                let d = localStorage.getItem("collects")
+                let d = uAnimeSearchCore.store.get(uAnimeSearchCore.store.key.collects)
                 if (d && d.length > 0) {
-                    d = JSON.parse(d)
                     this.collects = d
                 }
                 console.log("加载收藏夹...", this.collects)
@@ -550,7 +565,7 @@
                 })
             },
             setPagesData(pages, data, pageCallback) {
-                if (data == null) {
+                if (data == null || data.length <= 0) {
                     console.log("设置分页无数据，出错...")
                     return
                 }
@@ -592,23 +607,27 @@
                     this.showCollects = pages.data[0]
                 }
             },
-            setObjsMd5(results) {
-                for (let d of results) {
-                    d.id = md5(JSON.stringify(d))
+            setObjsMd5(objs, ...key) {
+                for (let d of objs) {
+                    this.setObjMd5(d, ...key)
                 }
+            },
+            setObjMd5(obj, ...key) {
+                obj.id = md5(JSON.stringify(this.copyObj(obj, ...key)))
             },
             setObjsCollect(pages) {
                 for (let i in pages) {
                     if (!pages[i].id) {
-                        pages[i].id = md5(JSON.stringify(pages[i]))
+                        this.setObjMd5(pages[i], ...this.copyKeys)
                     }
                     let idx = this.indexOf(this.collects, 'id', pages[i])
                     if (idx > -1) {
-                        pages.splice(i, 1, this.collects[idx])
+                        pages.splice(i, 1, Object.assign({},pages[i], {collect: this.collects[idx] ? this.collects[idx].collect : null}))
                     }
                 }
                 console.log("生成收藏数据...", pages)
             },
+
             // 收藏
             onSearchResultCollect(result) {
                 try {
@@ -640,6 +659,44 @@
                 this.saveCollects()
                 this.setObjsCollect(this.showResults)
             },
+            onUpdateCollects() {
+                this.$message({
+                    message: '开始更新收藏',
+                    type: 'success'
+                })
+                let result = []
+                let count = 0
+                for (let cot of this.collects) {
+                    try {
+                        uAnimeSearchCore.parse.updateCollect(cot, (data) => {
+                            console.debug("获得更新收藏数据", data)
+                            result.push(data)
+                            count ++
+                            this.onUpdateCollectsFinished(count, result)
+                        }, (err) => {
+                            count ++
+                            this.onUpdateCollectsFinished(count, result)
+                            console.log(err)
+                        })
+                    } catch (e) {
+                        count ++
+                        this.onUpdateCollectsFinished(count, result)
+                    }
+                }
+
+            },
+            onUpdateCollectsFinished(count, result) {
+                if (count === this.collects.length &&  result.length > 0) {
+                    for (let d of result) {
+                        console.log("开始更新", d.id)
+                        this.replace(this.collects, 'id', d)
+                    }
+                    this.$message({
+                        message: '更新收藏成功',
+                        type: 'success'
+                    })
+                }
+            },
             onCollectPagesCurrentChange(val) {
                 this.showCollects = this.collectPages.data[val - 1]
                 console.log("当前显示", this.showCollects)
@@ -669,7 +726,7 @@
                 for (let comp of this.searchComponents) {
                     comp.enable = this.enableSearchComponents.includes(comp);
                 }
-                localStorage.setItem("searchComponents", JSON.stringify(this.searchComponents))
+                uAnimeSearchCore.store.set(uAnimeSearchCore.store.key.searchComponents, this.searchComponents)
                 this.$message({
                     message: '设置保存成功',
                     type: 'success'
@@ -691,6 +748,7 @@
             // 搜索
             onSearchFinished() {
                 if (++ this.searchIndex >= this.enableSearchComponents.length) {
+                    console.log("搜索数据",this.results)
                     this.searching = false
                     this.searchIndex = 0
                     this.setPagesData(this.searchPages,this.results,this.setObjsCollect)
@@ -722,7 +780,7 @@
                                     });
                                 } else {
                                     // 将结果放入
-                                    this.setObjsMd5(results)
+                                    this.setObjsMd5(results, ...this.copyKeys)
                                     this.results.push(...results)
                                     let searchPages = this.showResults
                                     if (searchPages.length < this.searchPages.pageSize) {
